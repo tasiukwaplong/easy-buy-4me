@@ -17,14 +17,18 @@ return new class extends Migration
 
             $table->string('transaction_reference');
             $table->string('method');
+            $table->string('description');
             $table->string('payment_reference')->nullable(true);
             $table->string('status')->default('PENDING');
+            $table->string('date');
+
+            $table->unsignedBigInteger('user_id');
 
             $table->decimal('amount', 8, 2, true);
 
-            $table->date('date');
-
             $table->timestamps();
+
+            $table->foreign('user_id')->references('id')->on('users')->cascadeOnDelete()->cascadeOnUpdate();
 
         });
     }

@@ -18,9 +18,7 @@ class Order extends Model
         'user_id',
     ];
 
-    public function items() : HasMany {
-        return $this->hasMany(Item::class);
+    public function orderedItems() : HasMany {
+        return $this->hasMany(OrderedItem::class);
     }
-
-
 }
