@@ -20,4 +20,11 @@ class MonnifyHelper
 
         return $response->json()['responseBody']['accessToken'];
     }
+
+    public static function validateWebHookRequest($stringifiedData, $clientSecret, $requestHash)
+    {
+        $computedHash = hash_hmac('sha512', $stringifiedData, $clientSecret);
+        
+        return $computedHash === $requestHash;
+    }
 }

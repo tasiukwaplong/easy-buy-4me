@@ -5,6 +5,7 @@ namespace Database\Seeders;
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 
 use App\Models\User;
+use App\Models\Wallet;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
@@ -21,12 +22,22 @@ class DatabaseSeeder extends Seeder
     ];
     public function run(): void
     {
-        User::create([
+        $user = User::create([
             'phone' => "07035002025",
             'first_name' => 'Raphael',
             'last_name' => 'Eze',
             'email' => 'eze.raph@gmail.com',
             'temp_email' => 'eze.raph@gmail.com',
+        ]);
+
+        Wallet::create([
+            'bank' => 'Wema Bank',
+            'account_name' => 'Rap',
+            'account_number' => '5000383664',
+            'account_reference' => 'ezeraphgmailcomi0bv7j',
+            'bank_code' => '035',
+            'balance' => 2000.00,
+            'user_id' => $user->id
         ]);
     }
 }

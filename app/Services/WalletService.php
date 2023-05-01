@@ -38,6 +38,21 @@ class WalletService
 
     }
 
+    /**
+     * function to add fund to wallet
+     *
+     * @param [type] $amount
+     * @param Wallet $wallet
+     * @return void
+     */
+    public function topFund($amount, Wallet $wallet) {
+
+        $currentBalance = $wallet->balance + $amount;
+
+        $wallet->balance = doubleval($currentBalance);
+        $wallet->save();
+    }
+
 
     /**
      * Function to create new monnify virtual account

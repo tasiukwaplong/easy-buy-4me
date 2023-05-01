@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Controllers\WhatsAppController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -18,4 +17,3 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-Route::get('/test', [WhatsAppController::class, 'test']);
