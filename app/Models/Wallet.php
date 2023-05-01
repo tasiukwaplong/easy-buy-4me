@@ -15,7 +15,8 @@ class Wallet extends Model
         'account_name',
         'account_number',
         'account_reference',
-        'bank_reference',
+        'bank_code',
+        'balance',
         'user_id'
     ];
 

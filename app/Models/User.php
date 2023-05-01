@@ -18,7 +18,13 @@ class User extends Model
         'temp_email',
     ];
 
-    public function wallets() : HasMany {
+    public function wallets(): HasMany
+    {
         return $this->hasMany(Wallet::class);
+    }
+
+    public function transactions(): HasMany
+    {
+        return $this->hasMany(Transaction::class);
     }
 }

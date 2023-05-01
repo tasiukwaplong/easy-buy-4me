@@ -10,6 +10,12 @@ class Helpers {
         'delivered' => 1
     ];
 
+    public const ORDER_STATUS = [
+        'processing' => 0,
+        'canceled' => -1,
+        'delivered' => 1
+    ];
+
     public const TRANSACTION_STATUS = [
         'PAID',
         'PENDING',

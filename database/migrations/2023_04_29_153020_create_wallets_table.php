@@ -19,7 +19,9 @@ return new class extends Migration
             $table->string('account_name');
             $table->string('account_number');
             $table->string('account_reference');
-            $table->string('bank_reference');
+            $table->string('bank_code');
+
+            $table->decimal('balance', 10, 2, true)->default(0.0);
 
             $table->unsignedBigInteger('user_id');
 
