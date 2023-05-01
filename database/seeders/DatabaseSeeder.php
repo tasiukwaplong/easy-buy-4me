@@ -49,12 +49,16 @@ class DatabaseSeeder extends Seeder
         $firstVendor = Vendor::create([
             'name' => 'Chicken Republic',
             'phone' => '07035002025',
+            'imageUrl' => "",
+            'description' => "first vendor description",
             'address' => 'Jos Road Lafia, Nasarawa State'
         ]);
 
         $secondVendor = Vendor::create([
             'name' => 'Madam 10 10 Restaurant',
             'phone' => '07035002025',
+            'imageUrl' => "",
+            'description' => "second vendor description",
             'address' => 'Gandu, near FULafia, Lafia, Nasarawa State'
         ]);
 
