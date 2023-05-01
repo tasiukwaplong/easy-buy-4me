@@ -10,7 +10,7 @@ class Item extends Model
 {
     use HasFactory;
 
-    protected $fillble = [
+    protected $fillable = [
         'category',
         'vendor',
         'item_name',
