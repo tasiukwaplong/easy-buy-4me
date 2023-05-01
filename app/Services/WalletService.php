@@ -42,16 +42,31 @@ class WalletService
      *
      * @param [type] $amount
      * @param Wallet $wallet
-     * @param bool $topUp
+     * @param bool $topUp determins whether it is a top up or withdrawal operation
      * @return void
      */
 
     public function alterBalance($amount, Wallet $wallet, bool $topUp)
     {
 
-        $currentBalance = $topUp ? $wallet->balance + $amount : $wallet->balance - $amount;
+        if ($topUp) {
+            
+            $currentBalance = $wallet->balance + $amount;
+            $wallet->balance = doubleval($currentBalance);
 
-        $wallet->balance = doubleval($currentBalance);
+        } else {
+            try {
+                if ($wallet->balance < $amount) {
+                    throw new \Exception("Insufficient balance " . $wallet->balance);
+                }
+
+                $currentBalance = $wallet->balance - $amount;
+                $wallet->balance = doubleval($currentBalance);
+
+            } catch (\Throwable $th) {
+                throw new \Exception($th->getMessage());
+            }
+        }
         $wallet->save();
     }
 
@@ -81,11 +96,9 @@ class WalletService
 
             //Delete Wallet from database
             Wallet::destroy($wallet->id);
-
         } catch (\Throwable $th) {
             return $th->getMessage();
         }
-
     }
 
 
@@ -121,7 +134,6 @@ class WalletService
             if (!$createNewMonnifyAccountResponse->successful()) {
                 throw new \Exception($createNewMonnifyAccountResponse['responseMessage']);
             }
-
             return $createNewMonnifyAccountResponse->json();
         } catch (\Throwable $th) {
             dd($th->getMessage());
