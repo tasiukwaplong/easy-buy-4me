@@ -5,6 +5,9 @@ use App\Models\Vendor;
 
 /**
  * To receive errand request and send back the appropriete response
+ * all functions in this class returns an array(message=>...., options=>....., button=> ...., image=> ...)
+ * button, image and options are optional fields and need to be checked for
+ * message is returned from all functions
  */
 
 class ErrandService {
@@ -21,7 +24,7 @@ class ErrandService {
         $message = "I can help you run errands. \nEasyBuy4Me runs errands and make deliveries to your doorstep.\nCLick on the select option below to see the different kinds of errands I can help you run.";
 
         return array(
-            'logo' => $easyBuyLogo,
+            'image' => $easyBuyLogo,
             'message' => $message,
             'button' => "MENU"
         );
@@ -40,9 +43,10 @@ class ErrandService {
 
         return array(
             'message' => 'Errand Services',
-            'optionsAndDesciption' => $optionsAndDescription 
+            'options' => $optionsAndDescription 
         );
     }
+
 
     public function getErrandService(String $key){
         
@@ -52,26 +56,83 @@ class ErrandService {
             $options = array();
             
             foreach ($vendors as $vendor) {
-                $options["[Order from ".$vendor->name."]"] = 
+                $options["[Order from ".$vendor->name."]"] = $vendor->description;
             }
 
             $arrToReturn["options"] = $options;
             return $arrToReturn;
         }elseif ($key == GROCERY_SHOPPING) {
+            $vendors = getVendorsWithCategory('grocery');
+            $arrToReturn = array('message'=>"Get groceries around you\nTap to select an item");
+            $options = array();
             
+            foreach ($vendors as $vendor) {
+                $options["[Order from ".$vendor->name."]"] = $vendor->description;
+            }
+
+            $arrToReturn["options"] = $options;
+            return $arrToReturn;
         }elseif ($key == ITEM_PICK_UP) {
             
+            return array(
+                'message'=>"Contact our agent if you are in need fof someone to help you run an errand"
+            );
         }elseif ($key == OTHER_ITEMS) {
             
+            $vendors = getVendorsWithCategory('other');
+            $arrToReturn = array('message'=>"Order Plethora of items around you \nTap to select an item");
+            $options = array();
+            
+            foreach ($vendors as $vendor) {
+                $options["[Order from ".$vendor->name."]"] = $vendor->description;
+            }
+
+            $arrToReturn["options"] = $options;
+            return $arrToReturn;
+
         }elseif ($key == VENDORS) {
             
+            $vendors = Vendor::all();
+            $arrToReturn = array('message'=>"Order Plethora of items around you \nTap to select an item");
+            $options = array();
+            
+            foreach ($vendors as $vendor) {
+                $options["[Order from ".$vendor->name."]"] = $vendor->description;
+            }
+
+            $arrToReturn["options"] = $options;
+            return $arrToReturn;
+
         }elseif ($key == CUSTOM) {
             
+            return array(
+                'message' => "You can chat with our customer care agent through this 089009101"
+            );
+
         }else{
+
             return array(
                 'message' => "The response you entered was not understood"
             );
+
         }
+    }
+
+    public function getVendorCatalog(String $vendorId){
+        $vendor = Vendor::find($vendorId);
+        $items = $vendor->items()->get();
+        $message = $vendor->name."\n";
+
+        $index = 1;
+        foreach ($vendor->items as $item) {
+            $message = $message."\n ".$index.". ".$item->item_name." - ".$item->item_price." per ".$item->unit_name." \n";
+        }
+
+        return array(
+            'image' => $vendor->imageUrl,
+            'message' => $message,
+            'buttons' => ["Go Back", "Support"]
+        );
     }
 
     private function getVendorsWithCategory(String $category){
