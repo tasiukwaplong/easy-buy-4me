@@ -35,22 +35,57 @@ class WalletService
             'bank_code' => $account['bankCode'],
             'user_id' => $user->id
         ]);
-
     }
 
     /**
-     * function to add fund to wallet
+     * function to add or withdraw fund to/from wallet
      *
      * @param [type] $amount
      * @param Wallet $wallet
+     * @param bool $topUp
      * @return void
      */
-    public function topFund($amount, Wallet $wallet) {
 
-        $currentBalance = $wallet->balance + $amount;
+    public function alterBalance($amount, Wallet $wallet, bool $topUp)
+    {
+
+        $currentBalance = $topUp ? $wallet->balance + $amount : $wallet->balance - $amount;
 
         $wallet->balance = doubleval($currentBalance);
         $wallet->save();
+    }
+
+    /**
+     * Function to delete a wallet
+     *
+     * @param Wallet $wallet
+     * @return void
+     */
+    public function deleteWallet(Wallet $wallet)
+    {
+
+        $accountReference = $wallet->account_reference;
+
+        //Get Access token
+        $accessToken = MonnifyHelper::getAccessToken();
+        $requestUrl = env('MONNIFY_BASE_URL') . MonnifyConfig::DELETE_VIRTUAL_ACCOUNT . $accountReference;
+
+        try {
+
+            //Deallocate account in monnify
+            $accountDeallocationRequestResponse = Http::withToken($accessToken)->delete($requestUrl);
+
+            if (!($accountDeallocationRequestResponse->successful() and $accountDeallocationRequestResponse->json()['requestSuccessful'])) {
+                throw new \Exception($accountDeallocationRequestResponse->json()['responseMessage']);
+            }
+
+            //Delete Wallet from database
+            Wallet::destroy($wallet->id);
+
+        } catch (\Throwable $th) {
+            return $th->getMessage();
+        }
+
     }
 
 

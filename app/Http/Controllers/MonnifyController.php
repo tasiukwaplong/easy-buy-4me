@@ -34,7 +34,7 @@ class MonnifyController extends Controller
             if ($destinationWallet) {
 
                 $walletService = new WalletService();
-                $walletService->topFund($responseBodyData['settlementAmount'], $destinationWallet);
+                $walletService->alterBalance($responseBodyData['settlementAmount'], $destinationWallet, true);
 
                 //Create new transaction
                 Transaction::create([
