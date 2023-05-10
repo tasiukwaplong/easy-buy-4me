@@ -66,9 +66,12 @@ class ErrandService
 
             $arrToReturn["options"] = $options;
             return $arrToReturn;
+
         } elseif ($key == self::GROCERY_SHOPPING) {
+            
             $vendors = self::getVendorsWithCategory('grocery');
             $arrToReturn = array('message' => "Get groceries around you\nTap to select an item");
+            
             $options = array();
 
             foreach ($vendors as $vendor) {
@@ -77,11 +80,13 @@ class ErrandService
 
             $arrToReturn["options"] = $options;
             return $arrToReturn;
+
         } elseif ($key == self::ITEM_PICK_UP) {
 
             return array(
-                'message' => "Contact our agent if you are in need fof someone to help you run an errand"
+                'message' => "Contact our agent if you are in need for someone to help you run an errand"
             );
+            
         } elseif ($key == self::OTHER_ITEMS) {
 
             $vendors = self::getVendorsWithCategory('other');
@@ -94,6 +99,7 @@ class ErrandService
 
             $arrToReturn["options"] = $options;
             return $arrToReturn;
+
         } elseif ($key == self::VENDORS) {
 
             $vendors = Vendor::all();
@@ -106,6 +112,7 @@ class ErrandService
 
             $arrToReturn["options"] = $options;
             return $arrToReturn;
+            
         } elseif ($key == self::CUSTOM) {
 
             return array(

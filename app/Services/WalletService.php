@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Models\User;
+use App\Models\Customer;
 use App\Models\Wallet;
 use App\utils\monnify\MonnifyConfig;
 use App\utils\monnify\MonnifyHelper;
@@ -14,14 +14,14 @@ class WalletService
     /**
      * Function creates new wallet for user
      *
-     * @param User $user
+     * @param Customer $customer
      * @return void
      */
-    public function createWallet(User $user)
+    public function createWallet(Customer $customer)
     {
 
         //Get new monnify virtual account
-        $responseBody = $this->createMonnifyAccount($user)['responseBody'];
+        $responseBody = $this->createMonnifyAccount($customer)['responseBody'];
 
         //Get the account created
         $account = $responseBody['accounts'][0];
@@ -33,7 +33,7 @@ class WalletService
             'account_number' => $account['accountNumber'],
             'account_reference' => $responseBody['accountReference'],
             'bank_code' => $account['bankCode'],
-            'user_id' => $user->id
+            'user_id' => $customer->id
         ]);
     }
 
@@ -67,6 +67,7 @@ class WalletService
                 throw new \Exception($th->getMessage());
             }
         }
+
         $wallet->save();
     }
 
@@ -105,10 +106,10 @@ class WalletService
     /**
      * Function to create new monnify virtual account
      *
-     * @param User $user
+     * @param Customer $customer
      * @return void
      */
-    private function createMonnifyAccount(User $user)
+    private function createMonnifyAccount(Customer $customer)
     {
         //Get bearer authentication token
         $token = MonnifyHelper::getAccessToken();
@@ -116,12 +117,12 @@ class WalletService
         $requestUrl = env('MONNIFY_BASE_URL') . MonnifyConfig::CREATE_VIRTUAL_ACCOUNT;
 
         $newMonnifyAccountRequestBody = [
-            "accountReference" => str_replace('.', '', str_replace("@", '', $user->email)) . Random::generate(6),
-            "accountName" => "$user->first_name $user->last_name",
+            "accountReference" => str_replace('.', '', str_replace("@", '', $customer->email)) . Random::generate(6),
+            "accountName" => "$customer->first_name $customer->last_name",
             "currencyCode" => MonnifyConfig::NGN_CURRENCY_CODE,
             "contractCode" => env('MONNIFY_CURRENCY_CODE'),
-            "customerEmail" => $user->email,
-            "customerName" => "$user->first_name $user->last_name",
+            "customerEmail" => $customer->email,
+            "customerName" => "$customer->first_name $customer->last_name",
             "preferredBanks" => [MonnifyConfig::WEMA_BANK],
             "getAllAvailableBanks" => false
         ];
