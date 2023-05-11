@@ -40,7 +40,6 @@ class WhatsAppController extends Controller
         } else {
             //send error response
         }
-        // return response()->json($request->entry[0]['changes'][0]['value']['messages'][0]['type']);
     }
 
     private function sendResponse($result)
