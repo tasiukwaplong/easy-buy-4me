@@ -1,7 +1,7 @@
 <?php
 
 use App\Http\Controllers\MonnifyController;
-use Illuminate\Http\Request;
+use App\Http\Controllers\WhatsAppController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -15,9 +15,7 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
-    return $request->user();
-});
-
-Route::post('/monnify/webhook', [MonnifyController::class, 'webhook']);
+Route::post('/v1/monnify/webhook', [MonnifyController::class, 'webhook']);
+Route::post('/v1/whatsapp/webhook', [WhatsAppController::class, 'webhook']);
+Route::get("/email/verify", [EmailVerificationController::class, 'verify'])->name('email.verify');
 
