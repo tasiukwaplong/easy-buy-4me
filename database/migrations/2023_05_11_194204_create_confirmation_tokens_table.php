@@ -9,19 +9,13 @@ return new class extends Migration
     /**
      * Run the migrations.
      */
-
     public function up(): void
     {
-        Schema::create('users', function (Blueprint $table) {
-
+        Schema::create('confirmation_tokens', function (Blueprint $table) {
             $table->id();
-
-            $table->string('phone')->unique();
-            $table->string('first_name')->nullable(true);
-            $table->string('last_name')->nullable(true);
-            $table->string('email')->unique()->nullable(true);
-            $table->string('temp_email')->unique();
-
+            $table->string('email');
+            $table->string('token', 600);
+            $table->dateTime('expires_in');
             $table->timestamps();
         });
     }
@@ -31,6 +25,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('users');
+        Schema::dropIfExists('confirmation_tokens');
     }
 };
