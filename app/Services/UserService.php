@@ -23,12 +23,15 @@ class UserService
         return $user;
     }
 
-    public function updateUserParam($field, $newValue, $userPhone) : bool
+    public function updateUserParam($values, $userPhone) : bool
     {
         $user = $this->getUserByPhoneNumber($userPhone);
 
         if ($user) {
-            $user->$field = $newValue;
+
+            foreach($values as $field => $value) {
+                $user->$field = $value;
+            }
             
             return $user->save();
         }

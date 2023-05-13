@@ -17,3 +17,5 @@ use Illuminate\Support\Facades\Route;
 
 Route::post('/v1/monnify/webhook', [MonnifyController::class, 'webhook']);
 Route::post('/v1/whatsapp/webhook', [WhatsAppController::class, 'webhook']);
+Route::get("/email/verify", [EmailVerificationController::class, 'verify'])->name('email.verify');
+

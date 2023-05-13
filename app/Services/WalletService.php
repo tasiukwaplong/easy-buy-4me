@@ -110,17 +110,18 @@ class WalletService
      */
     private function createMonnifyAccount(User $user)
     {
+
         //Get bearer authentication token
         $token = MonnifyHelper::getAccessToken();
 
         $requestUrl = env('MONNIFY_BASE_URL') . MonnifyConfig::CREATE_VIRTUAL_ACCOUNT;
 
         $newMonnifyAccountRequestBody = [
-            "accountReference" => str_replace('.', '', str_replace("@", '', $user->email)) . Random::generate(6),
+            "accountReference" => str_replace('.', '', str_replace("@", '', $user->temp_email)) . Random::generate(6),
             "accountName" => "$user->first_name $user->last_name",
             "currencyCode" => MonnifyConfig::NGN_CURRENCY_CODE,
             "contractCode" => env('MONNIFY_CURRENCY_CODE'),
-            "customerEmail" => $user->email,
+            "customerEmail" => $user->temp_email,
             "customerName" => "$user->first_name $user->last_name",
             "preferredBanks" => [MonnifyConfig::WEMA_BANK],
             "getAllAvailableBanks" => false
@@ -128,7 +129,7 @@ class WalletService
 
         try {
             //Send new account request to monnify
-            $createNewMonnifyAccountResponse = Http::withToken($token)->post($requestUrl, $newMonnifyAccountRequestBody);
+            $createNewMonnifyAccountResponse = Http::withToken($token)->retry(3)->post($requestUrl, $newMonnifyAccountRequestBody);
 
             //Check if request is unsuccessful
             if (!$createNewMonnifyAccountResponse->successful()) {

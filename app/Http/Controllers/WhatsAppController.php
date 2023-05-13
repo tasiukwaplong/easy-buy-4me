@@ -29,20 +29,11 @@ class WhatsAppController extends Controller
             //Process this request
             $responseService->processRequest();
 
-            //Get the result of this 
-            $result = $responseService->getResult();
-
-            return response()->json($result);
-
-            //Send back response to customer
-            $this->sendResponse($result);
-
+            //Send response to user
+            $responseService->sendResponse();
+            
         } else {
             //send error response
         }
-    }
-
-    private function sendResponse($result)
-    {
     }
 }
