@@ -66,7 +66,6 @@ class ResponseService
 
                     //Send dashboard message to existing customer
                     $this->responseData = ResponseMessages::dashboardMessage($user);
-
                 } else {
 
                     if (filter_var($text, FILTER_VALIDATE_EMAIL)) {
@@ -128,6 +127,7 @@ class ResponseService
                 }
             }
         } elseif ($this->origin === Utils::ORIGIN_VERIFICATION) {
+            
             $customerPhoneNumber = $this->data['phone'];
 
             //Get User
@@ -150,7 +150,6 @@ class ResponseService
 
     public function sendResponse()
     {
-
     }
 
 
