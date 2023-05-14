@@ -16,6 +16,8 @@ class User extends Model
         'last_name',
         'email',
         'temp_email',
+        'referral_code',
+        'referred_by'
     ];
 
     public function wallets(): HasMany

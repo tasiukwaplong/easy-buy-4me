@@ -28,10 +28,13 @@ class Utils
     //Dashboard menu
     public const DASHBOARD_MENU = [
         "[my-wallet]" => "See balance, fund wallet",
-        "[errand]" => "I can help you with your grocery shopping, getting lunch from your favorite restaurant",
+        // "[errand]" => "I can help you with your grocery shopping, getting lunch from your favorite restaurant",
+        "[errand]" => "Let's get you your grocery and lunch from your favorite restaurant",
         "[data]" => "Data (Internet subscription): Purchase data at very affordable rate",
-        "[airtime]" => "Airtime (VTU): Purchase airtime at 2% commision for yourself or loved ones",
-        "[easy-lunch]" => "For as low as NGN4,900 subscription, you can get lunch delivered to your home/office every day of the week",
+        // "[airtime]" => "Airtime (VTU): Purchase airtime at 2% commision for yourself or loved ones",
+        "[airtime]" => "Airtime (VTU): Purchase airtime at 2% commision",
+        // "[easy-lunch]" => "For as low as NGN4,900 subscription, you can get lunch delivered to your home/office every day of the week",
+        // "[easy-lunch]" => "For as low as NGN4,900 subscription, you can get lunch delivered to your home/office every day of the week",
         "[more]" => "Learn about EasyBuy4Me, pricing, FAQ and more"
     ];
 }

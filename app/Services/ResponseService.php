@@ -8,6 +8,7 @@ use App\Models\whatsapp\messages\SendMessage;
 use App\Models\whatsapp\ResponseMessages;
 use App\Models\whatsapp\Utils;
 use Illuminate\Support\Facades\Http;
+use Nette\Utils\Random;
 
 class ResponseService
 {
@@ -60,38 +61,61 @@ class ResponseService
                 //Get the text
                 $text = strtolower($incomingMessage['text']['body']);
 
-                if ($this->isRegisteredCustomer($customerPhoneNumber)) {
+                if ($userService->isRegisteredCustomer($customerPhoneNumber)) {
 
                     $user = $userService->getUserByPhoneNumber($customerPhoneNumber);
 
                     //Send dashboard message to existing customer
                     $this->responseData = ResponseMessages::dashboardMessage($user);
-                } else {
+                } 
+                else {
 
-                    if (filter_var($text, FILTER_VALIDATE_EMAIL)) {
+                    $authService = new AuthService();
 
-                        if ($this->isTempCustomer($customerPhoneNumber)) {
+                    //Create new user with referral code
+                    $userService->createUser([
+                        'phone' => $customerPhoneNumber,
+                    ]);
 
-                            //update email address
-                            $userService->updateUserParam(['temp_email' => $text], $customerPhoneNumber);
+                    if (str_starts_with($text, 'ref-')) {
 
-                            //ask user to enter name
-                            $this->responseData = ResponseMessages::enterNameMessage($text, $customerPhoneNumber, false);
-                        } else {
+                        $userService->updateUserParam([
+                            'referred_by' => strtoupper($text)
+                        ], $customerPhoneNumber);
 
-                            //Attempt Creating a new user
-                            //returns false if user with phone or email already exist
-                            $createUserResponse = $userService->createUser([
-                                'phone' => $customerPhoneNumber,
-                                'temp_email' => $text
-                            ]);
+                        $this->responseData = ResponseMessages::welcomeMessage($customerPhoneNumber, false, true);
+                    }
 
-                            //Respond based on the status of user creation
-                            $this->responseData = (!$createUserResponse instanceof User) ?
-                                $createUserResponse : ResponseMessages::enterNameMessage($text, $customerPhoneNumber, false);
-                        }
-                    } elseif (preg_match("([aA-zZ] [aA-zZ])", $text)) {
+                    //Check if its a verification code
+                    elseif (substr($text, 0, 5) === 'veri-') {
 
+                        $user = $userService->getUserByPhoneNumber($customerPhoneNumber);
+
+                        // dd($authService->verifyCode($customerPhoneNumber, strtoupper($text)));
+
+                        if ($user and $authService->verifyCode($customerPhoneNumber, strtoupper($text))) {
+
+                            //Create wallet
+                            $walletService = new WalletService();
+                            $walletService->createWallet($user);
+
+                            $this->responseData = ResponseMessages::dashboardMessage($user);
+                            
+                        } else $this->responseData = ResponseMessages::invalidTokenMessge($customerPhoneNumber, strtoupper($text), false);
+                    }
+
+                    elseif (filter_var($text, FILTER_VALIDATE_EMAIL)) {
+
+                        //update email address
+                        $userService->updateUserParam([
+                            'temp_email' => $text,
+                            'referral_code' => "ref-" . strtoupper(str_replace(".", "_", substr($text, 0, strpos($text, "@"))) . Random::generate(6, 'a-z'))
+                        ], $customerPhoneNumber);
+
+                        //ask user to enter name
+                        $this->responseData = ResponseMessages::enterNameMessage($text, $customerPhoneNumber, false);
+                    } 
+                    elseif (preg_match("([aA-zZ] [aA-zZ])", $text)) {
 
                         //find user with this phone number
                         $user = $userService->getUserByPhoneNumber($customerPhoneNumber);
@@ -108,26 +132,29 @@ class ResponseService
                             ], $customerPhoneNumber);
 
                             //Todo: send email verification notification to email
-                            $authService = new AuthService();
-                            $hash = $authService->generateHash($text, $user->temp_email);
+                            $confirmationToken = $authService->generateHash($text, $user->temp_email);
 
                             //Build a verification link to be sent to new user
-                            $verificationUrl = route('user.verify', ['email' => $user->temp_email, 'hash' => $hash]);
+                            $verificationUrl = route('user.verify', ['email' => $user->temp_email, 'hash' => $confirmationToken->token]);
 
                             //Initialize notification service and send verification message
                             $notificationService = new NotificationService();
-                            $notificationService->sendEmail($user->temp_email, new EmailVerification($text, $verificationUrl));
+                            $notificationService->sendEmail($user->temp_email, new EmailVerification($text, $confirmationToken->veri_token, $verificationUrl));
 
                             //Notify user of verification email sent
-                            $this->responseData = ResponseMessages::sendVerificationNotificationMessage($user->temp_email, $customerPhoneNumber, false);
+                            $this->responseData = ResponseMessages::sendVerificationNotificationMessage(
+                                $user->temp_email,
+                                $customerPhoneNumber,
+                                false
+                            );
                         } else $this->responseData = ResponseMessages::errorMessage($customerPhoneNumber, false);
 
                         // $this->responseTextData = $text;
-                    } else $this->responseData = ResponseMessages::welcomeMessage($customerPhoneNumber, false);
+                    } else $this->responseData = ResponseMessages::welcomeMessage($customerPhoneNumber, false, false);
                 }
             }
         } elseif ($this->origin === Utils::ORIGIN_VERIFICATION) {
-            
+
             $customerPhoneNumber = $this->data['phone'];
 
             //Get User
@@ -150,21 +177,8 @@ class ResponseService
 
     public function sendResponse()
     {
-    }
 
+        //Send response to appropraite channel
 
-
-
-    private function isTempCustomer($phone)
-    {
-        return User::where('phone', $phone)->first();
-    }
-
-    private function isRegisteredCustomer($customerPhoneNumber)
-    {
-        $userService = new UserService();
-        $user = $userService->getUserByPhoneNumber($customerPhoneNumber);
-
-        return ($user and $user->email and $user->first_name) ? $user : false;
     }
 }

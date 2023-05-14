@@ -15,14 +15,16 @@ class EmailVerification extends Mailable
 
     public string $name;
     public string $url;
+    public string $veriToken;
 
     /**
      * Create a new message instance.
      */
-    public function __construct(string $name, string $url)
+    public function __construct(string $name, string $veriToken, string $url)
     {
         $this->name = ucwords($name);
         $this->url = $url;
+        $this->veriToken =$veriToken;
     }
 
     /**

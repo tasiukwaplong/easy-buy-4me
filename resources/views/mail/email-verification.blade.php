@@ -24,7 +24,7 @@
                     </tr>
                     <tr>
                         <td style="padding: 15px 24px 15px; color: #8492a6;">
-                            Thanks for creating an account with EasyBuy4Me. To continue, please confirm your email address by clicking the button below :
+                            Thanks for creating an account with EasyBuy4Me. <br>Your Verification Token is: <strong>{{ $veriToken }}</strong><br>Kindly reply with this token on the bot or click on the button below to complete your registration :
                         </td>
                     </tr>
     

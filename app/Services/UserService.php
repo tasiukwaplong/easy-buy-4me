@@ -38,4 +38,11 @@ class UserService
 
         return false;
     }
+
+    public function isRegisteredCustomer($customerPhoneNumber)
+    {
+        $user = $this->getUserByPhoneNumber($customerPhoneNumber);
+
+        return ($user and $user->email and $user->first_name) ? $user : false;
+    }
 }

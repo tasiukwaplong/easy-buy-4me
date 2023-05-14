@@ -17,10 +17,12 @@ return new class extends Migration
             $table->id();
 
             $table->string('phone')->unique();
-            $table->string('first_name')->nullable(true);
-            $table->string('last_name')->nullable(true);
-            $table->string('email')->unique()->nullable(true);
-            $table->string('temp_email')->unique();
+            $table->string('first_name')->nullable();
+            $table->string('last_name')->nullable();
+            $table->string('email')->unique()->nullable();
+            $table->string('temp_email')->unique()->nullable();
+            $table->string('referral_code')->unique()->nullable();
+            $table->string('referred_by')->nullable();
 
             $table->timestamps();
         });
