@@ -6,6 +6,7 @@ use App\Models\ConfirmationToken;
 use App\Models\User;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Support\Facades\Crypt;
+use Nette\Utils\Random;
 
 /**
  * Class for authenticating user
@@ -19,21 +20,23 @@ class AuthService
      *
      * @param string $names
      * @param string $email
-     * @return string
+     * @return ConfirmationToken
      */
-    public function generateHash($names, $email): string
+    public function generateHash($names, $email): ConfirmationToken
     {
         $expiresIn = now()->addMinutes(10);
         $string = str_replace(" ", "%&", $names) . "%&" . $email . "%&" . env('APP_KEY') . "%&" . $expiresIn;
         $token = Crypt::encrypt($string);
+        $veriToken = "VERI-" . strtoupper(Random::generate(10));
 
-        $ConfirmationToken = ConfirmationToken::create([
+        $confirmationToken = ConfirmationToken::create([
             'email' => $email,
             'token' => $token,
+            'veri_token' => $veriToken,
             'expires_in' => $expiresIn
         ]);
 
-        return $ConfirmationToken->token;
+        return $confirmationToken;
     }
 
     /**
@@ -47,7 +50,7 @@ class AuthService
     {
         try {
 
-            $ConfirmationToken = ConfirmationToken::where('email', $user->temp_email)->first();
+            $confirmationToken = ConfirmationToken::where('email', $user->temp_email)->first();
 
             $decryptedHash = Crypt::decrypt($hash);
             $decryptedParts = explode("%&", $decryptedHash);
@@ -57,10 +60,33 @@ class AuthService
                 strtolower($user->last_name) === $decryptedParts[1] &&
                 $user->temp_email === $decryptedParts[2] &&
                 env('APP_KEY') === $decryptedParts[3] &&
-                $ConfirmationToken->expires_in === $decryptedParts[4];
-
+                $confirmationToken->expires_in === $decryptedParts[4];
         } catch (DecryptException $exception) {
             return false;
         }
+    }
+
+
+    /**
+     * Function to verify a verification token
+     *
+     * @param string $phone
+     * @param string $code
+     * @return boolean
+     */
+    public function verifyCode(string $phone, string $code) : bool
+    {
+        $userService = new UserService();
+
+        if (!$userService->isRegisteredCustomer($phone)) {
+
+            $user = $userService->getUserByPhoneNumber($phone);
+
+            $confirmationToken = ConfirmationToken::where('email', $user->temp_email)->first();
+
+            return $confirmationToken and ($confirmationToken->expires_in > now()) and $confirmationToken->veri_token === $code;
+        }
+
+        return false;
     }
 }

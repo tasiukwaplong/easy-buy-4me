@@ -14,6 +14,7 @@ return new class extends Migration
         Schema::create('confirmation_tokens', function (Blueprint $table) {
             $table->id();
             $table->string('email');
+            $table->string('veri_token');
             $table->string('token', 600);
             $table->dateTime('expires_in');
             $table->timestamps();

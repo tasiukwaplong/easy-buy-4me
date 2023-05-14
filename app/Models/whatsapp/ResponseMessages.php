@@ -16,13 +16,13 @@ use App\Models\whatsapp\messages\TextSendMessage;
 class ResponseMessages
 {
 
-    public static function welcomeMessage(string $customerPhoneNumber, bool $urlPreview): SendMessage
+    public static function welcomeMessage(string $customerPhoneNumber, bool $urlPreview, bool $withRef): SendMessage
     {
 
         $greetingIndex = array_rand(Utils::GREETINGS_TO_CUSTOMER);
         $greeting = Utils::GREETINGS_TO_CUSTOMER[$greetingIndex];
 
-        $body = "$greeting,\nMy name is EasyBuy4Me. I am a BOT. I can help you with your physical and digital errands.\nKindly provide your email to begin your registration";
+        $body = $withRef ? "$greeting,\nMy name is *EasyBuy4Me*. I am a BOT. I can help you with your physical and digital errands.\nKindly provide your email to begin your registration." : "$greeting,\nMy name is *EasyBuy4Me*. I am a BOT. I can help you with your physical and digital errands.\nKindly enter a referral code if you have one or provide your email to begin your registration.";
         return self::textMessage($body, $customerPhoneNumber, $urlPreview);
     }
 
@@ -52,7 +52,19 @@ class ResponseMessages
         return self::textMessage($body, $customerPhoneNumber, $urlPreview);
     }
 
-    public static function dashboardMessage(User $user)
+    public static function invalidTokenMessge($customerPhoneNumber, $code, $urlPreview)
+    {
+        $body = "Verification token: *$code* does not match our record. Kindly enter correct code or reply *Hi* to start again";
+        return self::textMessage($body, $customerPhoneNumber, $urlPreview);
+    }
+
+    /**
+     * Functio to return user dashboard
+     *
+     * @param User $user
+     * @return InteractiveSendMessage
+     */
+    public static function dashboardMessage(User $user) : InteractiveSendMessage
     {
         $userWallets = $user->wallets;
 
@@ -76,6 +88,7 @@ class ResponseMessages
         //Build Action
         $action = new Action("CHOOSE SERVICE", array($section));
 
+        //Build a footer
         $footer = ['text' => 'Tap to select item'];
 
         $body = ['text' => $bodyContent];

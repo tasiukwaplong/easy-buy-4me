@@ -9,6 +9,7 @@ use App\Services\AuthService;
 use App\Services\UserService;
 use App\Services\WalletService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Redirect;
 
 class EmailVerificationController extends Controller
 {
@@ -39,9 +40,12 @@ class EmailVerificationController extends Controller
                 $walletService = new WalletService();
                 $walletService->createWallet($user);
 
-                new RegistrationCompleteEvent($user);
+                event(new RegistrationCompleteEvent($user));
 
                 //Redirect back to whatsapp
+                $phone = env('WHATSAPP_PHONE_NUMBER');
+                return Redirect::to("https://wa.me/$phone?text=Hello");
+
 
             }
         }

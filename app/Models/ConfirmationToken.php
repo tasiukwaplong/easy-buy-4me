@@ -12,6 +12,7 @@ class ConfirmationToken extends Model
     protected $fillable = [
         'email',
         'token',
+        'veri_token',
         'expires_in'
     ];
 }
