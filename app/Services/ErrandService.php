@@ -2,29 +2,24 @@
 
 namespace App\Services;
 
+use App\Models\Item;
 use App\Models\Vendor;
-
-/**
- * To receive errand request and send back the appropriete response
- * all functions in this class returns an array(message=>...., options=>....., button=> ...., image=> ...)
- * button, image and options are optional fields and need to be checked for
- * message is returned from all functions
- */
 
 class ErrandService
 {
-    const ORDER_FOOD = '[Order Food]';
-    const GROCERY_SHOPPING = '[Grocery Shopping]';
-    const ITEM_PICK_UP = '[Item pick-up]';
-    const OTHER_ITEMS = '[Other items]';
-    const VENDORS = '[Vendors]';
-    const CUSTOM = '[Custom]';
+
+    const ORDER_FOOD = '[errand-order-food]';
+    const GROCERY_SHOPPING = '[errand-grocery-shopping]';
+    const ITEM_PICK_UP = '[errand-item-pick-up]';
+    const OTHER_ITEMS = '[errand-other-items]';
+    const VENDORS = '[errand-vendors]';
+    const CUSTOM = '[errand-custom]';
 
     //When user
     public function init()
     {
         $easyBuyLogo = "easybuylogo.com";
-        $message = "I can help you run errands. \nEasyBuy4Me runs errands and make deliveries to your doorstep.\nCLick on the select option below to see the different kinds of errands I can help you run.";
+        $message = "I can help you run errands. \nEasyBuy4Me runs errands and make deliveries to your doorstep.\n\nTap *MENU* below to see the different kinds of errands I can help you run.";
 
         return array(
             'image' => $easyBuyLogo,
@@ -52,7 +47,7 @@ class ErrandService
     }
 
 
-    public function getErrandService(String $key)
+    public function getErrandService(string $key)
     {
 
         if ($key == self::ORDER_FOOD) {
@@ -68,10 +63,10 @@ class ErrandService
             return $arrToReturn;
 
         } elseif ($key == self::GROCERY_SHOPPING) {
-            
+
             $vendors = self::getVendorsWithCategory('grocery');
             $arrToReturn = array('message' => "Get groceries around you\nTap to select an item");
-            
+
             $options = array();
 
             foreach ($vendors as $vendor) {
@@ -84,9 +79,9 @@ class ErrandService
         } elseif ($key == self::ITEM_PICK_UP) {
 
             return array(
-                'message' => "Contact our agent if you are in need for someone to help you run an errand"
+                'message' => "Please, contact our agent if you are in need for someone to help you run an errand"
             );
-            
+
         } elseif ($key == self::OTHER_ITEMS) {
 
             $vendors = self::getVendorsWithCategory('other');
@@ -103,20 +98,22 @@ class ErrandService
         } elseif ($key == self::VENDORS) {
 
             $vendors = Vendor::all();
-            $arrToReturn = array('message' => "Order Plethora of items around you \nTap to select an item");
+            $arrToReturn = array('message' => "Checkout a plethora of vendors around you");
             $options = array();
 
             foreach ($vendors as $vendor) {
-                $options["[Order from " . $vendor->name . "]"] = $vendor->description;
+                $options["[vendor-" . $vendor->id . "]"] = [$vendor->name, $vendor->description];
             }
 
             $arrToReturn["options"] = $options;
             return $arrToReturn;
-            
+
         } elseif ($key == self::CUSTOM) {
 
+            $text = "Hello...";
+
             return array(
-                'message' => "You can chat with our customer care agent through this 089009101"
+                'message' => "You can chat with our customer care agent through \nhttps://wa.me/2347035002025?text=$text"
             );
         } else {
 
@@ -130,24 +127,23 @@ class ErrandService
     {
         $vendor = Vendor::find($vendorId);
         $items = $vendor->items()->get();
-        $message = $vendor->name . "\n";
-
-        $index = 1;
-        foreach ($vendor->items as $item) {
-            $message = $message . "\n " . $index . ". " . $item->item_name . " - " . $item->item_price . " per " . $item->unit_name . " \n";
-        }
-
+       
         return array(
             'image' => $vendor->imageUrl,
-            'message' => $message,
+            'items' => $items,
             'buttons' => ["Go Back", "Support"]
         );
     }
 
     private function getVendorsWithCategory(String $category)
     {
-        return Vendor::with(['items' => function ($query) use ($category) {
-            $query->where('category', $category);
-        }])->get(); //an obeject which contains vendor details and list of items
+
+        $vendors = Item::where('category', $category)
+            ->get()
+            ->map(function ($item) {
+                return $item->vendor;
+            })->all();
+
+        return $vendors;
     }
 }
