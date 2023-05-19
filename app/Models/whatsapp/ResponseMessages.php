@@ -267,7 +267,7 @@ class ResponseMessages
 
             foreach ($vendorItems as $vendorItem) {
 
-                $id = "order-" . $vendor->id . ":" . $vendorItem->id;
+                $id = "[order-" . $vendor->id . ":" . $vendorItem->id."]";
                 $description = $vendorItem->item_name . " - " . "N" . $vendorItem->item_price . " per " . $vendorItem->unit_name;
 
                 $row = new Row($id, $vendorItem->item_name, $description);
@@ -321,7 +321,6 @@ class ResponseMessages
 
     public static function errandOthers($customerPhoneNumber, bool $urlPreview = false)
     {
-
         $errandService = new ErrandService();
 
         $errandServicesOptions = $errandService->getErrandService(Utils::ERRAND_OTHER_ITEMS);
@@ -330,8 +329,7 @@ class ResponseMessages
 
         if (count($optionsArray) > 0) {
 
-
-            $header = ['type' => Utils::TEXT, 'text' => strtoupper("UNCATEGORIZED ORDERS")];
+            $header = ['type' => Utils::TEXT, 'text' => "UNCATEGORIZED ORDERS"];
 
             //Build all rows
             $selectionRows = [];
