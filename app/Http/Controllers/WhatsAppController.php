@@ -19,8 +19,9 @@ class WhatsAppController extends Controller
     public function webhook(Request $request)
     {
         if($request->method() == "GET") {
-           return response()->json(['hub.challenge' => $request->get('hub_challenge')]);
+           return response()->json(['hub.challenge' => $request->get('hub.challenge')]);
         }
+
         //Get business account ID from this user
         $whatsAppBusinessAccountId = $request->entry[0]['id'];
 
