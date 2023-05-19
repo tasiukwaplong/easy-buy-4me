@@ -5,13 +5,13 @@ namespace App\Models\whatsapp\messages\partials\interactive;
 class Interactive {
     
     public string $type;
-    public Header $header;
+    public $header;
     public $body;
     public $footer;
-    public Action $action;
+    public $action;
 
     
-    public function __construct(string $type, Header $header, $body, $footer, Action $action)
+    public function __construct(string $type, $header, $body, $footer, $action)
     {
         $this->type = $type;
         $this->header = $header;
