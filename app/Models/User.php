@@ -29,4 +29,8 @@ class User extends Model
     {
         return $this->hasMany(Transaction::class);
     }
+
+    public function orders() : HasMany {
+        return $this->hasMany(Order::class);
+    }
 }

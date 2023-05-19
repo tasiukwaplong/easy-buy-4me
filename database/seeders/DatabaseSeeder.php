@@ -19,22 +19,10 @@ class DatabaseSeeder extends Seeder
     /**
      * Seed the application's database.
      */
-    protected $fillable = [
-        'phone',
-        'first_name',
-        'last_name',
-        'email',
-        'temp_email',
-    ];
+
     public function run(): void
     {
-        $user = User::create([
-            'phone' => "07035002025",
-            'first_name' => 'Raphael',
-            'last_name' => 'Eze',
-            'email' => 'eze.raph@gmail.com',
-            'temp_email' => 'eze.raph@gmail.com',
-        ]);
+        $user = User::where('phone', '2347035002025')->first();
 
         Wallet::create([
             'bank' => 'Wema Bank',
@@ -71,6 +59,24 @@ class DatabaseSeeder extends Seeder
             'vendor_id' => $firstVendor->id
         ]);
 
+        $firstItem = Item::create([
+            'category' => 'Food',
+            'item_name' => 'Eba',
+            'item_price' => 470.00,
+            'short_description' => 'Well prepared eba',
+            'unit_name' => 'plate',
+            'vendor_id' => $firstVendor->id
+        ]);
+
+        $firstItem = Item::create([
+            'category' => 'Food',
+            'item_name' => 'salad',
+            'item_price' => 890.00,
+            'short_description' => 'Well prepared salad',
+            'unit_name' => 'dish',
+            'vendor_id' => $firstVendor->id
+        ]);
+
         $secondItem = Item::create([
             'category' => 'Drinks',
             'item_name' => '35cl Coke drink',
@@ -78,26 +84,6 @@ class DatabaseSeeder extends Seeder
             'short_description' => 'Chilled coca cola drink',
             'unit_name' => 'bottle',
             'vendor_id' => $secondVendor->id
-        ]);
-
-        $firstOrder = Order::create([
-            'order_id' => strtoupper(Random::generate()),
-            'description' => "first order description",
-            'total_amount' => 2000,
-            'status' => Helpers::ORDER_STATUS['delivered'],
-            'user_id' => $user->id
-        ]);
-
-        OrderedItem::create([
-            'item_id' => $firstItem->id,
-            'quantity' => 2,
-            'order_id' => $firstOrder->id
-        ]);
-
-        OrderedItem::create([
-            'item_id' => $secondItem->id,
-            'quantity' => 4,
-            'order_id' => $firstOrder->id
         ]);
     }
 }

@@ -3,10 +3,14 @@
 namespace App\Services;
 
 use App\Mail\EmailVerification;
+use App\Models\Item;
+use App\Models\Order;
 use App\Models\User;
+use App\Models\Vendor;
 use App\Models\whatsapp\messages\SendMessage;
 use App\Models\whatsapp\ResponseMessages;
 use App\Models\whatsapp\Utils;
+use GuzzleHttp\Psr7\Response;
 use Illuminate\Support\Facades\Http;
 use Nette\Utils\Random;
 
@@ -55,20 +59,218 @@ class ResponseService
             $incomingMessageType = $incomingMessage['type'];
             $customerPhoneNumber = $incomingMessage['from'];
 
-            if ($incomingMessageType === Utils::TEXT) {
+            if ($userService->isRegisteredCustomer($customerPhoneNumber)) {
 
-                //process text based message
-                //Get the text
-                $text = strtolower($incomingMessage['text']['body']);
+                $user = $userService->getUserByPhoneNumber($customerPhoneNumber);
 
-                if ($userService->isRegisteredCustomer($customerPhoneNumber)) {
+                if ($incomingMessageType === Utils::TEXT) {
 
-                    $user = $userService->getUserByPhoneNumber($customerPhoneNumber);
+                    //process text based message
+                    //Get the text
+                    $text = strtolower($incomingMessage['text']['body']);
 
                     //Send dashboard message to existing customer
                     $this->responseData = ResponseMessages::dashboardMessage($user);
-                } 
-                else {
+                }
+
+                if ($incomingMessageType === Utils::INTERACTIVE) {
+
+                    $interactiveMessage = $incomingMessage['interactive'];
+
+                    if ($interactiveMessage['type'] === Utils::LIST_REPLY) {
+
+                        $interactiveMessageId = $interactiveMessage[Utils::LIST_REPLY]['id'];
+
+                        switch ($interactiveMessageId) {
+
+                            case Utils::ERRAND: {
+                                    $this->responseData = ResponseMessages::errandHome($customerPhoneNumber);
+                                    break;
+                                }
+                            case Utils::ERRAND_ORDER_FOOD: {
+
+                                    $this->responseData = ResponseMessages::errandOrderFood($customerPhoneNumber);
+                                    break;
+                                }
+
+                            case Utils::ERRAND_GROCERY_SHOPPING: {
+                                    $this->responseData = ResponseMessages::errandGroceryShopping($customerPhoneNumber);
+                                    break;
+                                }
+
+                            case Utils::ERRAND_ITEM_PICK_UP: {
+                                    $this->responseData = ResponseMessages::errandItemPickUp($customerPhoneNumber);
+                                    break;
+                                }
+
+                            case Utils::ERRAND_OTHER_ITEMS: {
+                                    $this->responseData = ResponseMessages::errandOthers($customerPhoneNumber);
+                                    break;
+                                }
+
+                            case Utils::ERRAND_VENDORS: {
+                                    $this->responseData = ResponseMessages::allVendors($customerPhoneNumber);
+                                    break;
+                                }
+
+                            case Utils::ERRAND_CUSTOM: {
+                                    $this->responseData = ResponseMessages::errandCustom($customerPhoneNumber);
+                                    break;
+                                }
+
+                            default:
+                                # code...
+                                break;
+                        }
+
+                        $messge = $this->cleanMessage($interactiveMessageId);
+
+                        if (str_starts_with($messge, "Order from ")) {
+
+                            $vendorName = str_replace("Order from ", "", $messge);
+                            $vendor = Vendor::where('name', $vendorName)->first();
+
+                            if ($vendor) {
+                                $this->responseData = ResponseMessages::vendorCatalog($customerPhoneNumber, $vendor);
+                            }
+                        } elseif (str_starts_with($messge, "order-")) {
+
+                            //Create or check for existing order
+                            $user = $userService->getUserByPhoneNumber($customerPhoneNumber);
+
+                            $orderService = new OrderService();
+                            $order = $orderService->findUserCurrentOrder($user);
+
+                            $itemId = explode(":", $messge)[1];
+                            $vendorId = explode("-", explode(":", $messge)[0])[1];
+
+                            $updatedOrder = $orderService->addOrderedItem($order, $itemId, $vendorId);
+
+                            $this->responseData = ResponseMessages::currentOrder($customerPhoneNumber, $updatedOrder);
+                        }
+
+                        elseif(str_starts_with($messge, "vendor-")) {
+                            $vendorId = explode("-", $messge)[1];
+                            $this->responseData = ResponseMessages::vendor($customerPhoneNumber, Vendor::find($vendorId));
+                        }
+
+                        elseif(str_starts_with($messge, "select-wallet-")) {
+                            
+                            $parts = explode(":", str_replace("select-wallet-", "", $messge));
+                            
+                            $walletId = $parts[0];
+                            $orderId = $parts[1];
+
+                            $orderService = new OrderService();
+                            $errand = $orderService->performCheckout($orderId, $walletId);
+
+                            if($errand) {
+                                //send to admin
+                                $this->responseData = ResponseMessages::notifyAdmin($customerPhoneNumber, $errand);
+                            }
+
+                            else {
+                                $this->responseData = ResponseMessages::insufficientBalnce($customerPhoneNumber);
+                            }
+                        }
+
+                    } elseif ($interactiveMessage['type'] === Utils::BUTTON_REPLY) {
+
+                        $messge = $this->cleanMessage($interactiveMessage[Utils::BUTTON_REPLY]['id']);
+
+
+                        if (str_starts_with($messge, "Order from ")) {
+
+                            $vendorName = str_replace("Order from ", "", $messge);
+                            $vendor = Vendor::where('name', $vendorName)->first();
+
+                            if ($vendor) {
+                                $this->responseData = ResponseMessages::vendorCatalog($customerPhoneNumber, $vendor);
+                            }
+                        }
+
+
+                        elseif(str_starts_with($messge, "button-order-checkout")) {
+                            
+                            $orderId = str_replace("button-order-checkout:", "", $messge);
+
+                            $order = Order::find($orderId);
+
+                            if($order) {
+                                $this->responseData = ResponseMessages::confirmOrderCheckout($customerPhoneNumber, $order);
+                            }
+                        }
+
+                        elseif(str_starts_with($messge, "order-confirm-")) {
+
+                            $parts = explode(":", str_replace("order-confirm-", "", $messge));
+
+                            $response = $parts[0];
+                            $orderId = $parts[1];
+
+                            if($response == 'yes') {
+                                
+                                $this->responseData = ResponseMessages::chooseWallet($customerPhoneNumber, $orderId);
+                            }
+
+                            else {
+
+                                $orderService = new OrderService();
+                                $orderService->cancelOrder($orderId);
+
+                                $userService = new UserService();
+                                $user = $userService->getUserByPhoneNumber($customerPhoneNumber);
+                                $this->responseData = ResponseMessages::dashboardMessage($user);
+                            }
+                        }
+
+                        switch ($messge) {
+
+                            case Utils::BUTTONS_GO_TO_DASHBOARD: {
+                                    $this->responseData = ResponseMessages::dashboardMessage($user);
+                                    break;
+                                }
+
+                            case Utils::BUTTONS_ORDER_ADD_ITEM: {
+                                    //Create or check for existing order
+                                    $user = $userService->getUserByPhoneNumber($customerPhoneNumber);
+
+                                    $orderService = new OrderService();
+                                    $order = $orderService->getPreviousOrder($user);
+
+                                    if ($order) {
+                                        $orderItems = $order->orderedItems->sortBy(function ($item) {
+                                            return $item->updated_at;
+                                        });
+
+                                        $vendor = Item::find($orderItems->last()->item_id)->vendor;
+
+                                        $this->responseData = ResponseMessages::vendorCatalog($customerPhoneNumber, $vendor);
+
+                                    }else  $this->responseData = ResponseMessages::allVendors($customerPhoneNumber);
+
+                                    break;
+                                }
+
+                                case Utils::BUTTONS_ORDER_ADD_MORE_ITEM: {
+
+                                    $this->responseData = ResponseMessages::allVendors($customerPhoneNumber);
+                                    break;
+                                }
+
+                            default:
+                                # code...
+                                break;
+                        }
+                    }
+                }
+            } else {
+
+                if ($incomingMessageType === Utils::TEXT) {
+
+                    //process text based message
+                    //Get the text
+                    $text = strtolower($incomingMessage['text']['body']);
 
                     $authService = new AuthService();
 
@@ -91,20 +293,18 @@ class ResponseService
 
                         $user = $userService->getUserByPhoneNumber($customerPhoneNumber);
 
-                        // dd($authService->verifyCode($customerPhoneNumber, strtoupper($text)));
-
                         if ($user and $authService->verifyCode($customerPhoneNumber, strtoupper($text))) {
 
                             //Create wallet
                             $walletService = new WalletService();
                             $walletService->createWallet($user);
 
-                            $this->responseData = ResponseMessages::dashboardMessage($user);
-                            
-                        } else $this->responseData = ResponseMessages::invalidTokenMessge($customerPhoneNumber, strtoupper($text), false);
-                    }
+                            //Update user email
+                            $userService->updateUserParam(['email' => $user->email], $customerPhoneNumber);
 
-                    elseif (filter_var($text, FILTER_VALIDATE_EMAIL)) {
+                            $this->responseData = ResponseMessages::dashboardMessage($user);
+                        } else $this->responseData = ResponseMessages::invalidTokenMessge($customerPhoneNumber, strtoupper($text), false);
+                    } elseif (filter_var($text, FILTER_VALIDATE_EMAIL)) {
 
                         //update email address
                         $userService->updateUserParam([
@@ -114,8 +314,7 @@ class ResponseService
 
                         //ask user to enter name
                         $this->responseData = ResponseMessages::enterNameMessage($text, $customerPhoneNumber, false);
-                    } 
-                    elseif (preg_match("([aA-zZ] [aA-zZ])", $text)) {
+                    } elseif (preg_match("([aA-zZ] [aA-zZ])", $text)) {
 
                         //find user with this phone number
                         $user = $userService->getUserByPhoneNumber($customerPhoneNumber);
@@ -148,12 +347,56 @@ class ResponseService
                                 false
                             );
                         } else $this->responseData = ResponseMessages::errorMessage($customerPhoneNumber, false);
-
-                        // $this->responseTextData = $text;
                     } else $this->responseData = ResponseMessages::welcomeMessage($customerPhoneNumber, false, false);
+                } elseif ($incomingMessageType === Utils::INTERACTIVE) {
+
+                    $interactiveMessage = $incomingMessage['interactive'];
+
+                    if ($interactiveMessage['type'] === Utils::BUTTON_REPLY) {
+
+                        switch ($interactiveMessage['button_reply']['id']) {
+
+
+                            case Utils::BUTTONS_START_AGAIN: {
+
+                                    //reset user registration
+                                    $userService->updateUserParam(
+                                        [
+                                            "temp_email" => null,
+                                            "referred_by" => null,
+                                            "referral_code" => null
+                                        ],
+
+                                        $customerPhoneNumber
+                                    );
+
+                                    $this->responseData = ResponseMessages::welcomeMessage($customerPhoneNumber, false, false);
+                                    break;
+                                }
+
+                            case Utils::BUTTONS_VIEW_SERVICES: {
+                                    $this->responseData = ResponseMessages::viewOurServices($customerPhoneNumber);
+                                    break;
+                                }
+
+                            case Utils::BUTTONS_GUEST_BEGIN: {
+                                    $this->responseData = ResponseMessages::welcomeMessage($customerPhoneNumber, false);
+                                    break;
+                                }
+
+
+                            default:
+                                # code...
+                                break;
+                        }
+                    }
                 }
             }
-        } elseif ($this->origin === Utils::ORIGIN_VERIFICATION) {
+        }
+
+
+        //When user is verifying a confirmation code
+        elseif ($this->origin === Utils::ORIGIN_VERIFICATION) {
 
             $customerPhoneNumber = $this->data['phone'];
 
@@ -167,7 +410,6 @@ class ResponseService
         } else {
             //send error message
         }
-        // $this->result = $isGreeting;
     }
 
     public function getResult()
@@ -177,8 +419,15 @@ class ResponseService
 
     public function sendResponse()
     {
+        $whatsAppId = env('WHATSAPP_PHONE_NUMBER_ID');
+        
+        Http::withToken(env('WHATSAPP_ACCESS_KEY'))
+            ->withHeaders(['Content-type' => 'application/json'])
+            ->post("https://graph.facebook.com/v16.0/$whatsAppId/messages", $this->responseData);
+    }
 
-        //Send response to appropraite channel
-
+    private function cleanMessage($interactiveMessageId)
+    {
+        return substr($interactiveMessageId, 1, strlen($interactiveMessageId) - 2);
     }
 }

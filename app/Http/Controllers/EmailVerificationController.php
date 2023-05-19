@@ -22,13 +22,19 @@ class EmailVerificationController extends Controller
         $authService = new AuthService();
 
         $user = User::where('temp_email', $email)->first();
-        
+
         if ($user and $authService->decryptHash($user, $hash)) {
 
             $confirmationToken = ConfirmationToken::where('email', $email)->first();
 
-            if ($confirmationToken and $confirmationToken->expires_in > now()) {
-                
+            $userService = new UserService();
+
+            if (
+                $confirmationToken and
+                $confirmationToken->expires_in > now() and
+                !$userService->isRegisteredCustomer($user->phone)
+            ) {
+
                 //Update user email
                 $userService = new UserService();
                 $userService->updateUserParam(['email' => $email], $user->phone);
@@ -44,9 +50,8 @@ class EmailVerificationController extends Controller
 
                 //Redirect back to whatsapp
                 $phone = env('WHATSAPP_PHONE_NUMBER');
-                return Redirect::to("https://wa.me/$phone?text=Hello");
 
-
+                return Redirect::to("https://wa.me/$phone");
             }
         }
     }

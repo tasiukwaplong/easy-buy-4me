@@ -18,7 +18,7 @@ return new class extends Migration
 
             $table->string('order_id');
             $table->string('description');
-            $table->string('status');
+            $table->integer('status');
 
             $table->decimal('total_amount', 8, 2, true);
 
