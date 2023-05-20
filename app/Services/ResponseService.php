@@ -79,6 +79,8 @@ class ResponseService
 
                     if ($interactiveMessage['type'] === Utils::LIST_REPLY) {
 
+
+
                         $interactiveMessageId = $interactiveMessage[Utils::LIST_REPLY]['id'];
 
                         switch ($interactiveMessageId) {
@@ -306,7 +308,7 @@ class ResponseService
                             $walletService->createWallet($user);
 
                             //Update user email
-                            $userService->updateUserParam(['email' => $user->email], $customerPhoneNumber);
+                            $userService->updateUserParam(['email' => $user->temp_email], $customerPhoneNumber);
 
                             $this->responseData = ResponseMessages::dashboardMessage($user);
                         } 
@@ -318,7 +320,7 @@ class ResponseService
                         //update email address
                         $userService->updateUserParam([
                             'temp_email' => $text,
-                            'referral_code' => "ref-" . strtoupper(str_replace(".", "_", substr($text, 0, strpos($text, "@"))) . Random::generate(6, 'a-z'))
+                            'referral_code' => "ref-" . strtoupper(str_replace(".", "_", substr($text, 0, strpos($text, "@"))) . Random::generate(10, 'a-z'))
                         ], $customerPhoneNumber);
 
                         //ask user to enter name
