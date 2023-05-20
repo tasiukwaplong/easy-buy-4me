@@ -11,6 +11,7 @@ class Utils
     public const ORIGIN_TWITTER = "twitter";
     public const ORIGIN_TELEGRAM = "telegram";
     public const ORIGIN_VERIFICATION = "email_verify";
+    public const ADMIN_EVENTS = "admin_event";
 
     //Expected type of messages from whatsapp
     public const BUTTON_REPLY = "button_reply";
@@ -54,6 +55,7 @@ class Utils
     public const BUTTONS_ORDER_ADD_ITEM = '[button-order-add-item]';
     public const BUTTONS_ORDER_ADD_MORE_ITEM = '[button-order-add-more-item]';
     public const BUTTONS_ORDER_CHECKOUT = '[button-order-checkout]';
+    public const BUTTONS_FUND_MY_WALLET = '[button-fund-my-wallet]';
 
     //List reply IDs
     public const ERRAND = "[errand]";
