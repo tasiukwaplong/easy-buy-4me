@@ -36,6 +36,8 @@ class WhatsAppController extends Controller
             //Send response to user
             $responseService->sendResponse();
 
+            return response()->json($responseService->getResult());
+
         } else {
             //send error response
         }
