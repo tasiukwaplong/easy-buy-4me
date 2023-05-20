@@ -66,6 +66,7 @@ class Utils
     //Image urls
     public const ERRAND_BANNAER = "https://awazone.s3.amazonaws.com/public/errands.jpg";
     public const SERVICES_BANNAER = "https://awazone.s3.amazonaws.com/public/errands2.jpg";
+    public const REG_BANNAER = "https://awazone.s3.amazonaws.com/public/reg_imge.jpg";
 
     //Order statuses
     public const ORDER_STATUS_PROCESSING = 1;
