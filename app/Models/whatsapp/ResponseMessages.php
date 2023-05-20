@@ -22,6 +22,12 @@ use App\Services\ErrandService;
 class ResponseMessages
 {
 
+    public static function letsBegin(string $customerPhoneNumber): TextSendMessage
+    {
+        $body = "*Here We Go!*\n\nKindly provide your email to begin your registration.\nIf you were referred by someone, enter the referral code he/she gave you";
+        return self::textMessage($body, $customerPhoneNumber, false);
+    }
+
     public static function viewOurServices(string $customerPhoneNumber)
     {
 
@@ -566,10 +572,24 @@ class ResponseMessages
      * @param boolean $urlPreview
      * @return TextSendMessage
      */
-    public static function enterNameMessage(string $email, string $customerPhoneNumber, bool $urlPreview): TextSendMessage
+    public static function enterNameMessage(string $email, string $customerPhoneNumber, bool $urlPreview): InteractiveSendMessage
     {
-        $body = "Great, I have registered your email as *$email*.\nKindly Provide your full name in the order: FirstName LastName E.G: John Doe.";
-        return self::textMessage($body, $customerPhoneNumber, $urlPreview);
+        $body = "Great, I have registered your email as *$email*.\nKindly Provide your full name in the order: FirstName LastName e.g: John Doe.";
+
+        $header = ["type" => "image", "image" => ["link" => Utils::REG_BANNAER]];
+
+        $action = ['buttons' => array([
+            "type" => Utils::REPLY,
+            "reply" => [
+                "id" => Utils::BUTTONS_START_AGAIN,
+                "title" => "START AGAIN"
+            ]
+        ])];
+
+        $interactive = new Interactive(Utils::BUTTON, $header, ['text' => $body], ['text' => "@easyBuy4me"], $action);
+        $interactiveSendMessage = new InteractiveSendMessage($customerPhoneNumber, Utils::INTERACTIVE, $interactive);
+        
+        return $interactiveSendMessage;
     }
 
     public static function sendVerificationNotificationMessage($email, $customerPhoneNumber, $urlPreview): TextSendMessage

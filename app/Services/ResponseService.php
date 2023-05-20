@@ -174,7 +174,10 @@ class ResponseService
                             }
                         }
 
-                    } elseif ($interactiveMessage['type'] === Utils::BUTTON_REPLY) {
+                    
+                    } 
+                    
+                    elseif ($interactiveMessage['type'] === Utils::BUTTON_REPLY) {
 
                         $messge = $this->cleanMessage($interactiveMessage[Utils::BUTTON_REPLY]['id']);
 
@@ -264,7 +267,10 @@ class ResponseService
                         }
                     }
                 }
-            } else {
+            } 
+            
+            //For unregistered users
+            else {
 
                 if ($incomingMessageType === Utils::TEXT) {
 
@@ -303,7 +309,10 @@ class ResponseService
                             $userService->updateUserParam(['email' => $user->email], $customerPhoneNumber);
 
                             $this->responseData = ResponseMessages::dashboardMessage($user);
-                        } else $this->responseData = ResponseMessages::invalidTokenMessge($customerPhoneNumber, strtoupper($text), false);
+                        } 
+                        
+                        else $this->responseData = ResponseMessages::invalidTokenMessge($customerPhoneNumber, strtoupper($text), false);
+                    
                     } elseif (filter_var($text, FILTER_VALIDATE_EMAIL)) {
 
                         //update email address
@@ -314,7 +323,9 @@ class ResponseService
 
                         //ask user to enter name
                         $this->responseData = ResponseMessages::enterNameMessage($text, $customerPhoneNumber, false);
-                    } elseif (preg_match("([aA-zZ] [aA-zZ])", $text)) {
+                    } 
+                    
+                    elseif (preg_match("([aA-zZ] [aA-zZ])", $text)) {
 
                         //find user with this phone number
                         $user = $userService->getUserByPhoneNumber($customerPhoneNumber);
@@ -347,8 +358,12 @@ class ResponseService
                                 false
                             );
                         } else $this->responseData = ResponseMessages::errorMessage($customerPhoneNumber, false);
+                    
                     } else $this->responseData = ResponseMessages::welcomeMessage($customerPhoneNumber, false, false);
-                } elseif ($incomingMessageType === Utils::INTERACTIVE) {
+                
+                } 
+                
+                elseif ($incomingMessageType === Utils::INTERACTIVE) {
 
                     $interactiveMessage = $incomingMessage['interactive'];
 
@@ -370,7 +385,7 @@ class ResponseService
                                         $customerPhoneNumber
                                     );
 
-                                    $this->responseData = ResponseMessages::welcomeMessage($customerPhoneNumber, false, false);
+                                    $this->responseData = ResponseMessages::letsBegin($customerPhoneNumber);
                                     break;
                                 }
 
@@ -380,7 +395,7 @@ class ResponseService
                                 }
 
                             case Utils::BUTTONS_GUEST_BEGIN: {
-                                    $this->responseData = ResponseMessages::welcomeMessage($customerPhoneNumber, false);
+                                    $this->responseData = ResponseMessages::letsBegin($customerPhoneNumber);
                                     break;
                                 }
 
