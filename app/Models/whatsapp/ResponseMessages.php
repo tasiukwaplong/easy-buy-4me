@@ -18,9 +18,57 @@ use App\Models\whatsapp\messages\partials\interactive\Section;
 use App\Models\whatsapp\messages\SendMessage;
 use App\Models\whatsapp\messages\TextSendMessage;
 use App\Services\ErrandService;
+use App\Services\UserService;
 
 class ResponseMessages
 {
+
+    public static function userOrderPlaced(string $customerPhoneNumber, Errand $errand) {
+
+        $body = "Hey! Thanks for believing in me. I am on my way to run your errand. I will update you as soon as possible. Meanwhile, tap *DASHBOARD* to checkout other stuff I can do for you"; 
+
+        $header = ["type" => "image", "image" => ["link" => Utils::ERRAND_BANNAER]];
+
+        $action = ['buttons' => array([
+            "type" => Utils::REPLY,
+            "reply" => [
+                "id" => Utils::BUTTONS_GO_TO_DASHBOARD,
+                "title" => "DASHBOARD"
+            ]
+        ])];
+
+        $interactive = new Interactive(Utils::BUTTON, $header, ['text' => $body], ['text' => "@easyBuy4me"], $action);
+
+        $interactiveSendMessage = new InteractiveSendMessage($customerPhoneNumber, Utils::INTERACTIVE, $interactive);
+        return $interactiveSendMessage;
+    }
+
+    public static function userPayMethod(string $customerPhoneNumber, $orderId, $method): TextSendMessage
+    {
+        $order = Order::find($orderId);
+        $body = "";
+
+        if($order) {
+
+        $orderID = strtoupper($order->order_id);
+
+            if($method === "PAY ON DELIVERY") {
+                $body = "ORDER ID: *$orderID*\nTotal Amount: $order->total_amount\n\nI will soon deliver the above order to you. kindly pay the stated amount when I come";
+            }
+
+            if($method === "ONLINE") {
+                $body = "Click on the link below to make your payment\n\nhttps://easybuy4me.com/pay/?amount=$order->total_amount&user=$customerPhoneNumber&order=$order->order_id";
+            }
+
+            if($method === "TRANSFER") {
+                $body = "ORDER ID: *$orderID*\nTotal Amount: $order->total_amount\n\nKindly Transfer the above stated amount to any of the account numbers below\n\n*3676367393*\nAccess Bank\nMNFY/ Tasiu Kwap\n\n*983983786*\nMonie Point Bank\nMNFY/ Tasiu Kwap\n\n*001972626*\nWema Bank\nMNFY/ Tasiu Kwap";
+            }
+
+            return self::textMessage($body, $customerPhoneNumber, true);
+        }
+
+        
+    }
 
     public static function letsBegin(string $customerPhoneNumber): TextSendMessage
     {
@@ -52,24 +100,50 @@ class ResponseMessages
         return $interactiveSendMessage;
     }
 
-    public static function insufficientBalnce($customerPhoneNumber)
+    public static function insufficientBalnce($customerPhoneNumber, $orderId)
     {
+        $order = Order::find($orderId);
+
+        $userService = new UserService();
+        $user = $userService->getUserByPhoneNumber($customerPhoneNumber);
+
+        $totalWalletBalance = $user->wallets->reduce(function ($initial, $wallet) {
+            return $initial + $wallet->balance;
+        }, 0);
+
+        $body = "Ooops!\nAm sorry I was not able to complete your request, this is because your wallet balance is low. \n\nTotal Amount: $order->total_amount\nWallet balance: $totalWalletBalance\n\nTap *ADD MONEY* to fund your wallet";
+        $header = ["type" => "text", "text" => "INSUFFICIENT BALANCE"];
+
+        $action = ['buttons' => array(
+            [
+                "type" => Utils::REPLY,
+                "reply" => [
+                    "id" => Utils::BUTTONS_FUND_MY_WALLET,
+                    "title" => "ADD MONEY"
+                ]
+            ],
+        )];
+
+        $interactive = new Interactive(Utils::BUTTON, $header, ['text' => $body], ['text' => "@easyBuy4me"], $action);
+
+        $interactiveSendMessage = new InteractiveSendMessage($customerPhoneNumber, Utils::INTERACTIVE, $interactive);
+        return $interactiveSendMessage;
     }
 
-    public static function notifyAdmin($customerPhoneNumber, Errand $errand)
+    public static function notifyAdmin($customerPhoneNumber, Errand $errand, $method)
     {
 
         $order = Order::where("id", $errand->order_id)->first();
 
         if ($order->status === Utils::ORDER_STATUS_INITIATED) {
-            $orderSummary = "ORDER ID: *" . strtoupper($order->order_id) . "*\n\n";
+            $orderSummary = "NEW ORDER PLACED!!\n\nOrder ID: *" . strtoupper($order->order_id) . "*\n\n";
 
             foreach (OrderedItem::where('order_id', $order->id)->get() as $orI) {
                 $i = Item::find($orI->item_id);
                 $orderSummary = $orderSummary . "$i->item_name - N$i->item_price per $i->unit_name ($orI->quantity$i->unit_name)\n";
             }
 
-            $orderSummary = $orderSummary . "\nTotal Amount: *$order->total_amount*\nCustomer phone: $errand->destination_phone\n\nKindly reply with a dispatcher phone number in the format \nprocess-order-OREDER_ID:DISPATCHER_PHONE";
+            $orderSummary = $orderSummary . "\nTotal Amount: *$order->total_amount*\nCustomer phone: $errand->destination_phone\nPayment Method: $method\n\nKindly reply with a dispatcher phone number in the format \nprocess-order-OREDER_ID:DISPATCHER_PHONE";
 
             return self::textMessage($orderSummary, "2347035002025", false);
         }
@@ -88,7 +162,7 @@ class ResponseMessages
 
             $user = $order->user;
 
-            $header = ['type' => Utils::TEXT, 'text' => "SELECT WALLET"];
+            $header = ['type' => Utils::TEXT, 'text' => "SELECT PAYMENT SOURCE"];
 
             $userWallets = $user->wallets;
             $selectionRows = [];
@@ -104,8 +178,10 @@ class ResponseMessages
                 array_push($selectionRows, $row);
             }
 
-            array_push($selectionRows, new Row("[select-wallet-all:$orderId", "All Wallets", "Check all my wallet for funds"));
-            array_push($selectionRows, new Row("[select-wallet-aonline:$orderId", "Pay Online", "Pay with your debit card"));
+            array_push($selectionRows, new Row("[select-wallet-all:$orderId]", "All Wallets", "Check all my wallet for funds"));
+            array_push($selectionRows, new Row("[select-wallet-online:$orderId]", "Pay Online", "Pay with your debit card"));
+            array_push($selectionRows, new Row("[select-wallet-transfer:$orderId]", "Transfer", "Transfer money to my account"));
+            array_push($selectionRows, new Row("[select-wallet-delivery:$orderId]", "Pay on delivery", "Pay me when I am done running your errand"));
 
             //Build section
             $section = new Section("Total: $order->total_amount", $selectionRows);
@@ -248,7 +324,7 @@ class ResponseMessages
                 "type" => Utils::REPLY,
                 "reply" => [
                     "id" => "[button-order-checkout:$order->id]",
-                    "title" => "CHECKOUT"
+                    "title" => "PAY NOW"
                 ]
             ]
         )];
@@ -472,8 +548,6 @@ class ResponseMessages
             return self::errandHome($customerPhoneNumber, "Sorry no availble vendor for this service. Try again leter or select another\n");
         }
     }
-
-
 
     public static function errandOrderFood($customerPhoneNumber)
     {

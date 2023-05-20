@@ -61,7 +61,6 @@ class OrderService
 
         if ($item) {
 
-            $existingItem = false;
             //Update orderedItem quantity if it exist
             $thisOrderedItem = $order->orderedItems->filter(function ($orderedItem) use ($item) {
                 return $orderedItem->item_id == $item->id;
@@ -125,16 +124,38 @@ class OrderService
 
         $errand = Errand::where('order_id', $orderId)->first();
 
-        if (!$errand and $order) {
 
+        if (!$errand and $order) {
 
             if ($walletId == "all") {
 
-                $totalWalletBalance = $user->wallets->reduce(function ($initial, $wallet) {
+                $userWallets = $user->wallets;
+                $orderAmount = $order->total_amount;
+
+                $totalWalletBalance = $userWallets->reduce(function ($initial, $wallet) {
                     return $initial + $wallet->balance;
                 }, 0);
 
-                if ($totalWalletBalance > $order->total_amount) {
+                if ($totalWalletBalance > $orderAmount) {
+
+                     //update wallet balance
+                     foreach($userWallets as $userWallet) {
+
+
+                        $amt = $userWallet->balance - $orderAmount;
+
+                        if($amt < 0) {
+                           $orderAmount -= $userWallet->balance;
+
+                           $userWallet->balance = 0.0;
+                        }
+                        else {
+                            $userWallet->balance = $amt;
+                        }
+
+                        $userWallet->save();
+
+                    }
 
                     //Create a new Errand
                     $errand = Errand::create([
@@ -151,8 +172,26 @@ class OrderService
                 }
 
                 return false;
-            } else {
+            } 
+
+            elseif(in_array($walletId, ['delivery', 'transfer', 'online'])) {
+                 //Create a new Errand
+                 $errand = Errand::create([
+                    'destination_phone' => $user->phone,
+                    'dispatcher' => "",
+                    'status' => Utils::ORDER_STATUS_INITIATED,
+                    'order_id' => $order->id
+                ]);
+                $order->status = Utils::ORDER_STATUS_INITIATED;
+
+                $order->save();
+                return $errand;
+            }
+
+            else {
+
                 $wallet = Wallet::find($walletId);
+
                 if ($wallet and $wallet->balance > $order->total_amount) {
 
                     //Create a new Errand
@@ -177,4 +216,5 @@ class OrderService
 
         return $errand;
     }
+
 }
