@@ -507,7 +507,7 @@ class ResponseService
             //send error message
         }
     }
-    
+
     public function sendResponse()
     {
         $whatsAppId = env('WHATSAPP_PHONE_NUMBER_ID');
