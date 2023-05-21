@@ -22,6 +22,28 @@ use App\Services\UserService;
 class ResponseMessages
 {
 
+    public static function showSupport($customerPhoneNumber, User $admin) {
+        
+        $body = "You can support me via the following accounts\n\n*3676367393*\nAccess Bank\nMNFY/ Tasiu Kwap\n\n*983983786*\nMonie Point Bank\nMNFY/ Tasiu Kwap\n\n*001972626*\nWema Bank\nMNFY/ Tasiu Kwap\n\nOr chat with an admin via https://wa.me/$admin->phone";
+        $header = new Header(Utils::TEXT, "Support Me");
+
+        $action = ['buttons' => array(
+            [
+                "type" => Utils::REPLY,
+                "reply" => [
+                    "id" => Utils::BUTTONS_GO_TO_DASHBOARD,
+                    "title" => "DASHBOARD"
+                ]
+            ]
+        )];
+
+        $interactive = new Interactive(Utils::BUTTON, $header, ['text' => $body], ['text' => "@easyBuy4me"], $action);
+
+        $interactiveSendMessage = new InteractiveSendMessage($customerPhoneNumber, Utils::INTERACTIVE, $interactive);
+
+        return $interactiveSendMessage;
+    }
+
     public static function showMore($customerPhoneNumber)
     {
         $body = "EasyBuy4Me is an innovative errands and logistics company that specializes in providing physical and digital errands services to our customers, leveraging technology and our experienced team to deliver seamless and reliable services.\n\n" .
@@ -34,7 +56,7 @@ class ResponseMessages
             "_*Pay remitta*_\n\n" .
             "info.easybuy4me@gmail.com | +2349031514346";
 
-        $header = new Header(Utils::TEXT, "About EasyBuy4Me");
+        $header = ['type' => Utils::MEDIA_IMAGE, 'image' => ['link' => Utils::ERRAND_BANNAER]];
 
         $action = ['buttons' => array(
             [

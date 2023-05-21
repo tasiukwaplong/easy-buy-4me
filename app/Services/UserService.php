@@ -45,4 +45,8 @@ class UserService
 
         return ($user and $user->email and $user->first_name) ? $user : false;
     }
+
+    public function getAdmin() {
+        return User::where('is_admin', true)->first();
+    }
 }

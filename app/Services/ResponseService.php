@@ -256,6 +256,12 @@ class ResponseService
                                     break;
                                 }
 
+                            case Utils::BUTTONS_SUPPORT: {
+                                $admin = $userService->getAdmin();
+                                $this->responseData = ResponseMessages::showSupport($customerPhoneNumber, $admin);
+                                break;
+                            }
+
                             case Utils::BUTTONS_CLEAR_CART: {
                                 
                                 $user = $userService->getUserByPhoneNumber($customerPhoneNumber);
@@ -515,18 +521,13 @@ class ResponseService
         }
     }
 
-    public function getResult()
-    {
-        return $this->responseData;
-    }
-
     public function sendResponse()
     {
         $whatsAppId = env('WHATSAPP_PHONE_NUMBER_ID');
 
-        // Http::withToken(env('WHATSAPP_ACCESS_KEY'))
-        //     ->withHeaders(['Content-type' => 'application/json'])
-        //     ->post("https://graph.facebook.com/v16.0/$whatsAppId/messages", $this->responseData);
+        Http::withToken(env('WHATSAPP_ACCESS_KEY'))
+            ->withHeaders(['Content-type' => 'application/json'])
+            ->post("https://graph.facebook.com/v16.0/$whatsAppId/messages", $this->responseData);
     }
 
     private function cleanMessage($interactiveMessageId)
