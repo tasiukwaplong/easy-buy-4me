@@ -3,9 +3,7 @@
 namespace App\Models\whatsapp;
 
 use App\Models\Errand;
-use App\Models\Item;
 use App\Models\Order;
-use App\Models\OrderedItem;
 use App\Models\User;
 use App\Models\Vendor;
 use App\Models\whatsapp\messages\InteractiveSendMessage;
@@ -18,14 +16,149 @@ use App\Models\whatsapp\messages\partials\interactive\Section;
 use App\Models\whatsapp\messages\SendMessage;
 use App\Models\whatsapp\messages\TextSendMessage;
 use App\Services\ErrandService;
+use App\Services\OrderService;
 use App\Services\UserService;
 
 class ResponseMessages
 {
 
-    public static function userOrderPlaced(string $customerPhoneNumber, Errand $errand) {
+    public static function userWallets($customerPhoneNumber, $userWallets)
+    {
 
-        $body = "Hey! Thanks for believing in me. I am on my way to run your errand. I will update you as soon as possible. Meanwhile, tap *DASHBOARD* to checkout other stuff I can do for you"; 
+        $totalWalletBalance = $userWallets->reduce(function ($initial, $wallet) {
+            return $initial + $wallet->balance;
+        }, 0);
+
+        $walletDetails = $userWallets->reduce(function ($initial, $wallet) {
+            return $initial . "*$wallet->account_number*\n$wallet->account_name\n$wallet->bank\n$wallet->balance\n\n";
+        }, "*Your Wallets:*\n\n");
+
+        $body = $walletDetails . "*Total Balance:* $totalWalletBalance\n\nTo fund your wallet, make transfer to any of the accounts above\n\n*Fund online? click here -> https://easybuy4me.com/fund/?user=$customerPhoneNumber";
+
+        $header = new Header(Utils::TEXT, "My Wallets");
+
+        $action = ['buttons' => array(
+            [
+                "type" => Utils::REPLY,
+                "reply" => [
+                    "id" => Utils::BUTTONS_USER_WALLET_HISTORY,
+                    "title" => "HISTORY"
+                ]
+            ],
+            [
+                "type" => Utils::REPLY,
+                "reply" => [
+                    "id" => Utils::BUTTONS_GO_TO_DASHBOARD,
+                    "title" => "DASHBOARD"
+                ]
+            ]
+        )];
+
+        $interactive = new Interactive(Utils::BUTTON, $header, ['text' => $body], ['text' => "@easyBuy4me"], $action);
+
+        $interactiveSendMessage = new InteractiveSendMessage($customerPhoneNumber, Utils::INTERACTIVE, $interactive);
+
+        return $interactiveSendMessage;
+    }
+
+    public static function userCartCleared($customerPhoneNumber)
+    {
+        $body = "Your Cart is cleared";
+        $header = new Header(Utils::TEXT, "My Cart");
+
+        $action = ['buttons' => array(
+            [
+                "type" => Utils::REPLY,
+                "reply" => [
+                    "id" => Utils::BUTTONS_GO_TO_DASHBOARD,
+                    "title" => "DASHBOARD"
+                ]
+            ]
+        )];
+
+        $interactive = new Interactive(Utils::BUTTON, $header, ['text' => $body], ['text' => "@easyBuy4me"], $action);
+
+        $interactiveSendMessage = new InteractiveSendMessage($customerPhoneNumber, Utils::INTERACTIVE, $interactive);
+
+        return $interactiveSendMessage;
+    }
+
+    public static function sendUserCart($customerPhoneNumber, $order, $empty)
+    {
+
+        $body = ($empty and !$order) ? "Your Cart is empty" : "Your cart contains\n\n" . OrderService::orderSummary($order);
+        $header = new Header(Utils::TEXT, "My Cart");
+
+        $action = $empty ? ['buttons' => array(
+            [
+                "type" => Utils::REPLY,
+                "reply" => [
+                    "id" => Utils::BUTTONS_GO_TO_DASHBOARD,
+                    "title" => "DASHBOARD"
+                ]
+            ]
+        )]
+
+            :
+
+            ['buttons' => array(
+                [
+                    "type" => Utils::REPLY,
+                    "reply" => [
+                        "id" => Utils::BUTTONS_CLEAR_CART,
+                        "title" => "Clear Cart"
+                    ]
+                ],
+                [
+                    "type" => Utils::REPLY,
+                    "reply" => [
+                        "id" => Utils::BUTTONS_GO_TO_DASHBOARD,
+                        "title" => "DASHBOARD"
+                    ]
+                ]
+            )];
+
+        $interactive = new Interactive(Utils::BUTTON, $header, ['text' => $body], ['text' => "@easyBuy4me"], $action);
+
+        $interactiveSendMessage = new InteractiveSendMessage($customerPhoneNumber, Utils::INTERACTIVE, $interactive);
+
+        return $interactiveSendMessage;
+    }
+
+    public static function userOrderProcessed($customerPhoneNumber, $order, $dispatcher, $fee)
+    {
+
+        $body = "Kindly find the details below\n\n" . OrderService::orderSummary($order) . "Customer: $customerPhoneNumber\nService charge: $fee\nOrder ID: $order->order_id\n\nThe dispatch rider ($dispatcher) assigned to you will contact you shortly.";
+        $header = new Header(Utils::TEXT, "Your order has been placed");
+
+        $action = ['buttons' => array([
+            "type" => Utils::REPLY,
+            "reply" => [
+                "id" => Utils::BUTTONS_GO_TO_DASHBOARD,
+                "title" => "DASHBOARD"
+            ]
+        ])];
+
+        $interactive = new Interactive(Utils::BUTTON, $header, ['text' => $body], ['text' => "@easyBuy4me"], $action);
+
+        $interactiveSendMessage = new InteractiveSendMessage($customerPhoneNumber, Utils::INTERACTIVE, $interactive);
+
+        return $interactiveSendMessage;
+    }
+
+    public static function adminOrderProcessedSuccess($customerPhoneNumber, $order)
+    {
+
+        $orderId = strtoupper($order->order_id);
+        $body = $order ? "Order: *$orderId* placed successfully" : "Order: *$orderId* could not be processed. Check if order is still valid";
+
+        return self::textMessage($body, $customerPhoneNumber, false);
+    }
+
+    public static function userOrderPlaced(string $customerPhoneNumber, Errand $errand)
+    {
+
+        $body = "Hey! Thanks for believing in me. I am on my way to run your errand. I will update you as soon as possible. Meanwhile, tap *DASHBOARD* to checkout other stuff I can do for you";
 
         $header = ["type" => "image", "image" => ["link" => Utils::ERRAND_BANNAER]];
 
@@ -48,26 +181,24 @@ class ResponseMessages
         $order = Order::find($orderId);
         $body = "";
 
-        if($order) {
+        if ($order) {
 
-        $orderID = strtoupper($order->order_id);
+            $orderID = strtoupper($order->order_id);
 
-            if($method === "PAY ON DELIVERY") {
+            if ($method === "PAY ON DELIVERY") {
                 $body = "ORDER ID: *$orderID*\nTotal Amount: $order->total_amount\n\nI will soon deliver the above order to you. kindly pay the stated amount when I come";
             }
 
-            if($method === "ONLINE") {
+            if ($method === "ONLINE") {
                 $body = "Click on the link below to make your payment\n\nhttps://easybuy4me.com/pay/?amount=$order->total_amount&user=$customerPhoneNumber&order=$order->order_id";
             }
 
-            if($method === "TRANSFER") {
+            if ($method === "TRANSFER") {
                 $body = "ORDER ID: *$orderID*\nTotal Amount: $order->total_amount\n\nKindly Transfer the above stated amount to any of the account numbers below\n\n*3676367393*\nAccess Bank\nMNFY/ Tasiu Kwap\n\n*983983786*\nMonie Point Bank\nMNFY/ Tasiu Kwap\n\n*001972626*\nWema Bank\nMNFY/ Tasiu Kwap";
             }
 
             return self::textMessage($body, $customerPhoneNumber, true);
         }
-
-        
     }
 
     public static function letsBegin(string $customerPhoneNumber): TextSendMessage
@@ -84,7 +215,7 @@ class ResponseMessages
 
         $bodyContent = "$greeting\nThese are the things I can do for you:\n\n*Purchase data (MTN, GLO, AIRTEL etc) for as low as NGN228 for 1GB*\n\n*Purchase Airtime with 2% commission*\n\n*Run and track your physical goods errands*\n\n*Send you daily updates: News, sports and Trends from Twitter*";
 
-        $header = ["type" => "image", "image" => ["link" => Utils::SERVICES_BANNAER]];
+        $header = ["type" => Utils::TEXT, "text" => "Our Services"];
 
         $action = ['buttons' => array([
             "type" => Utils::REPLY,
@@ -138,16 +269,13 @@ class ResponseMessages
         if ($order->status === Utils::ORDER_STATUS_INITIATED) {
             $orderSummary = "NEW ORDER PLACED!!\n\nOrder ID: *" . strtoupper($order->order_id) . "*\n\n";
 
-            foreach (OrderedItem::where('order_id', $order->id)->get() as $orI) {
-                $i = Item::find($orI->item_id);
-                $orderSummary = $orderSummary . "$i->item_name - N$i->item_price per $i->unit_name ($orI->quantity$i->unit_name)\n";
-            }
+            $orderSummary .= OrderService::orderSummary($order);
 
-            $orderSummary = $orderSummary . "\nTotal Amount: *$order->total_amount*\nCustomer phone: $errand->destination_phone\nPayment Method: $method\n\nKindly reply with a dispatcher phone number in the format \nprocess-order-OREDER_ID:DISPATCHER_PHONE";
+            $orderSummary .= "Customer phone: $errand->destination_phone\nPayment Method: $method\n\nKindly reply with a dispatcher phone number in the format \nprocess-order-OREDER_ID:DISPATCHER_PHONE:FEE";
 
-            return self::textMessage($orderSummary, "2347035002025", false);
-        }
-        else {
+            $admin = User::where('is_admin', true)->first();
+            return self::textMessage($orderSummary, $admin->phone, false);
+        } else {
             $body = "Order with ID: *" . strtoupper($order->order_id) . "* already in process. Kindly be patient, I will soon update you on the status";
             return self::textMessage($body, $customerPhoneNumber, false);
         }
@@ -206,14 +334,9 @@ class ResponseMessages
     public static function confirmOrderCheckout($customerPhoneNumber, Order $order)
     {
 
-        $orderSummary = "";
+        $orderSummary = OrderService::orderSummary($order);
 
-        foreach (OrderedItem::where('order_id', $order->id)->get() as $orI) {
-            $i = Item::find($orI->item_id);
-            $orderSummary = $orderSummary . "$i->item_name - N$i->item_price per $i->unit_name ($orI->quantity$i->unit_name)\n";
-        }
-
-        $orderSummary = $orderSummary . "\nTotal Amount: *$order->total_amount*\n\nAre you sure you want to continue with this order?";
+        $orderSummary .= "Are you sure you want to continue with this order?";
 
         $header = ["type" => "text", "text" => "ORDER SUMMARY"];
 
@@ -349,7 +472,7 @@ class ResponseMessages
 
             foreach ($vendorItems as $vendorItem) {
 
-                $id = "[order-" . $vendor->id . ":" . $vendorItem->id."]";
+                $id = "[order-" . $vendor->id . ":" . $vendorItem->id . "]";
                 $description = $vendorItem->item_name . " - " . "N" . $vendorItem->item_price . " per " . $vendorItem->unit_name;
 
                 $row = new Row($id, $vendorItem->item_name, $description);
@@ -662,7 +785,7 @@ class ResponseMessages
 
         $interactive = new Interactive(Utils::BUTTON, $header, ['text' => $body], ['text' => "@easyBuy4me"], $action);
         $interactiveSendMessage = new InteractiveSendMessage($customerPhoneNumber, Utils::INTERACTIVE, $interactive);
-        
+
         return $interactiveSendMessage;
     }
 

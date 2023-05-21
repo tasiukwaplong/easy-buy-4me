@@ -14,6 +14,7 @@ class User extends Model
         'phone',
         'first_name',
         'last_name',
+        'is_admin',
         'email',
         'temp_email',
         'referral_code',

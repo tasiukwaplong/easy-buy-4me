@@ -4,15 +4,12 @@ namespace App\Services;
 
 use App\Events\OrderPlacedEvent;
 use App\Mail\EmailVerification;
-use App\Models\Errand;
 use App\Models\Item;
 use App\Models\Order;
-use App\Models\User;
 use App\Models\Vendor;
 use App\Models\whatsapp\messages\SendMessage;
 use App\Models\whatsapp\ResponseMessages;
 use App\Models\whatsapp\Utils;
-use GuzzleHttp\Psr7\Response;
 use Illuminate\Support\Facades\Http;
 use Nette\Utils\Random;
 
@@ -35,7 +32,7 @@ class ResponseService
         if ($this->origin === Utils::ORIGIN_WHATSAPP or $this->origin === Utils::ORIGIN_VERIFICATION or $this->origin === Utils::ADMIN_EVENTS) {
 
             $this->processWhatsappRequest();
-
+            
         } elseif ($this->origin === Utils::ORIGIN_FACEBOOK) {
             //process requests from facebook
         } elseif ($this->origin === Utils::ORIGIN_TELEGRAM) {
@@ -62,18 +59,41 @@ class ResponseService
             $incomingMessageType = $incomingMessage['type'];
             $customerPhoneNumber = $incomingMessage['from'];
 
-            if ($userService->isRegisteredCustomer($customerPhoneNumber)) {
+            //Get this user by phone number
+            $user = $userService->getUserByPhoneNumber($customerPhoneNumber);
 
-                $user = $userService->getUserByPhoneNumber($customerPhoneNumber);
+            if ($userService->isRegisteredCustomer($customerPhoneNumber)) {
 
                 if ($incomingMessageType === Utils::TEXT) {
 
-                    //process text based message
-                    //Get the text
                     $text = strtolower($incomingMessage['text']['body']);
 
-                    //Send dashboard message to existing customer
-                    $this->responseData = ResponseMessages::dashboardMessage($user);
+                    if (str_starts_with($text, "process-order-")) {
+
+                        //this opertions is handled by admin only
+                        if ($user->is_admin) {
+
+                            $processMessage = str_replace("process-order-", "", $text);
+
+                            $parts = explode(":", $processMessage);
+
+                            $orderId = strtolower($parts[0]);
+                            $dispatcherPhone = $parts[1];
+                            $fee = $parts[2];
+
+                            $orderService = new OrderService();
+                            $order = $orderService->processOrder($orderId, $dispatcherPhone, $fee, $customerPhoneNumber);
+
+                            $this->responseData = ResponseMessages::adminOrderProcessedSuccess($customerPhoneNumber, $order);
+                        }
+                    } else {
+                        //process text based message
+                        //Get the text
+                        $text = strtolower($incomingMessage['text']['body']);
+
+                        //Send dashboard message to existing customer
+                        $this->responseData = ResponseMessages::dashboardMessage($user);
+                    }
                 }
 
                 if ($incomingMessageType === Utils::INTERACTIVE) {
@@ -85,6 +105,24 @@ class ResponseService
                         $interactiveMessageId = $interactiveMessage[Utils::LIST_REPLY]['id'];
 
                         switch ($interactiveMessageId) {
+
+                            case Utils::MY_WALLET: {
+                                $user = $userService->getUserByPhoneNumber($customerPhoneNumber);
+                                $this->responseData = ResponseMessages::userWallets($customerPhoneNumber, $user->wallets);
+                                
+                                break;
+                            }
+
+                            case Utils::MY_CART: {
+
+                                $orderService = new OrderService();
+
+                                $userPendingOrder = $orderService->getUserPendingOrder($user);
+
+                                $this->responseData = $userPendingOrder ? ResponseMessages::sendUserCart($customerPhoneNumber, $userPendingOrder, false) :
+                                    ResponseMessages::sendUserCart($customerPhoneNumber, false, true);
+                                break;
+                            }
 
                             case Utils::ERRAND: {
                                     $this->responseData = ResponseMessages::errandHome($customerPhoneNumber);
@@ -138,9 +176,6 @@ class ResponseService
                             }
                         } elseif (str_starts_with($messge, "order-")) {
 
-                            //Create or check for existing order
-                            $user = $userService->getUserByPhoneNumber($customerPhoneNumber);
-
                             $orderService = new OrderService();
                             $order = $orderService->findUserCurrentOrder($user);
 
@@ -150,80 +185,85 @@ class ResponseService
                             $updatedOrder = $orderService->addOrderedItem($order, $itemId, $vendorId);
 
                             $this->responseData = ResponseMessages::currentOrder($customerPhoneNumber, $updatedOrder);
-                        }
-
-                        elseif(str_starts_with($messge, "vendor-")) {
+                        } 
+                        elseif (str_starts_with($messge, "vendor-")) {
+                            
                             $vendorId = explode("-", $messge)[1];
                             $this->responseData = ResponseMessages::vendor($customerPhoneNumber, Vendor::find($vendorId));
-                        }
-
-                        elseif(str_starts_with($messge, "select-wallet-")) {
+                        } 
+                        
+                        elseif (str_starts_with($messge, "select-wallet-")) {
 
                             $method = "WALLET";
-                            
+
                             //Get user preferred payment methods
                             $payOnline = str_starts_with($messge, "select-wallet-online");
                             $payViaTransfer = str_starts_with($messge, "select-wallet-transfer");
                             $payOnDelivery = str_starts_with($messge, "select-wallet-delivery");
 
                             $parts = explode(":", str_replace("select-wallet-", "", $messge));
-                            
+
                             $walletId = $parts[0];
                             $orderId = $parts[1];
 
-                            if($payOnline) {
+                            if ($payOnline) {
 
                                 $method = "ONLINE";
                                 //Message to user for online payment
                                 $this->responseData = ResponseMessages::userPayMethod($customerPhoneNumber, $orderId, $method);
                             }
 
-                            if($payViaTransfer) {
+                            if ($payViaTransfer) {
 
                                 $method = "TRANSFER";
                                 $this->responseData = ResponseMessages::userPayMethod($customerPhoneNumber, $orderId, $method);
                             }
 
-                            if($payOnDelivery) {
+                            if ($payOnDelivery) {
                                 $method = "PAY ON DELIVERY";
                                 $this->responseData = ResponseMessages::userPayMethod($customerPhoneNumber, $orderId, $method);
-
                             }
 
                             $orderService = new OrderService();
                             $errand = $orderService->performCheckout($orderId, $walletId);
 
-                            if($errand) {
+                            if ($errand) {
 
-                                if($method === "WALLET") {
+                                if ($method === "WALLET") {
                                     //Notify user that their order has been placed
                                     $this->responseData = ResponseMessages::userOrderPlaced($customerPhoneNumber, $errand);
                                 }
-                               
+
                                 //send notification to admin
                                 event(new OrderPlacedEvent($customerPhoneNumber, $errand, $method));
-                            }
-
-                            else {
+                            } else {
                                 $this->responseData = ResponseMessages::insufficientBalnce($customerPhoneNumber, $orderId);
                             }
                         }
-
-                    
                     } 
                     
                     elseif ($interactiveMessage['type'] === Utils::BUTTON_REPLY) {
 
-                          switch ($interactiveMessage[Utils::BUTTON_REPLY]['id']) {
+                        switch ($interactiveMessage[Utils::BUTTON_REPLY]['id']) {
 
                             case Utils::BUTTONS_GO_TO_DASHBOARD: {
                                     $this->responseData = ResponseMessages::dashboardMessage($user);
                                     break;
                                 }
 
+                            case Utils::BUTTONS_CLEAR_CART: {
+                                
+                                $user = $userService->getUserByPhoneNumber($customerPhoneNumber);
+                                
+                                $orderService = new OrderService();
+                                $orderService->clearCart($user);
+
+                                $this->responseData = ResponseMessages::userCartCleared($customerPhoneNumber);
+                                
+                                break;
+                            }
+
                             case Utils::BUTTONS_ORDER_ADD_ITEM: {
-                                    //Create or check for existing order
-                                    $user = $userService->getUserByPhoneNumber($customerPhoneNumber);
 
                                     $orderService = new OrderService();
                                     $order = $orderService->getPreviousOrder($user);
@@ -236,13 +276,14 @@ class ResponseService
                                         $vendor = Item::find($orderItems->last()->item_id)->vendor;
 
                                         $this->responseData = ResponseMessages::vendorCatalog($customerPhoneNumber, $vendor);
-
-                                    }else  $this->responseData = ResponseMessages::allVendors($customerPhoneNumber);
+                                    } 
+                                    
+                                    else  $this->responseData = ResponseMessages::allVendors($customerPhoneNumber);
 
                                     break;
                                 }
 
-                                case Utils::BUTTONS_ORDER_ADD_MORE_ITEM: {
+                            case Utils::BUTTONS_ORDER_ADD_MORE_ITEM: {
 
                                     $this->responseData = ResponseMessages::allVendors($customerPhoneNumber);
                                     break;
@@ -263,48 +304,37 @@ class ResponseService
                             if ($vendor) {
                                 $this->responseData = ResponseMessages::vendorCatalog($customerPhoneNumber, $vendor);
                             }
-                        }
+                        } elseif (str_starts_with($messge, "button-order-checkout")) {
 
-
-                        elseif(str_starts_with($messge, "button-order-checkout")) {
-                            
                             $orderId = str_replace("button-order-checkout:", "", $messge);
 
                             $order = Order::find($orderId);
 
-                            if($order) {
+                            if ($order) {
                                 $this->responseData = ResponseMessages::confirmOrderCheckout($customerPhoneNumber, $order);
                             }
-                        }
-
-                        elseif(str_starts_with($messge, "order-confirm-")) {
+                        } elseif (str_starts_with($messge, "order-confirm-")) {
 
                             $parts = explode(":", str_replace("order-confirm-", "", $messge));
 
                             $response = $parts[0];
                             $orderId = $parts[1];
 
-                            if($response == 'yes') {
-                                
-                                $this->responseData = ResponseMessages::chooseWallet($customerPhoneNumber, $orderId);
-                            }
+                            if ($response == 'yes') {
 
-                            else {
+                                $this->responseData = ResponseMessages::chooseWallet($customerPhoneNumber, $orderId);
+                            } else {
 
                                 $orderService = new OrderService();
                                 $orderService->cancelOrder($orderId);
 
-                                $userService = new UserService();
-                                $user = $userService->getUserByPhoneNumber($customerPhoneNumber);
                                 $this->responseData = ResponseMessages::dashboardMessage($user);
                             }
                         }
-
-                      
                     }
                 }
-            } 
-            
+            }
+
             //For unregistered users
             else {
 
@@ -333,8 +363,6 @@ class ResponseService
                     //Check if its a verification code
                     elseif (substr($text, 0, 5) === 'veri-') {
 
-                        $user = $userService->getUserByPhoneNumber($customerPhoneNumber);
-
                         if ($user and $authService->verifyCode($customerPhoneNumber, strtoupper($text))) {
 
                             //Create wallet
@@ -345,10 +373,7 @@ class ResponseService
                             $userService->updateUserParam(['email' => $user->temp_email], $customerPhoneNumber);
 
                             $this->responseData = ResponseMessages::dashboardMessage($user);
-                        } 
-                        
-                        else $this->responseData = ResponseMessages::invalidTokenMessge($customerPhoneNumber, strtoupper($text), false);
-                    
+                        } else $this->responseData = ResponseMessages::invalidTokenMessge($customerPhoneNumber, strtoupper($text), false);
                     } elseif (filter_var($text, FILTER_VALIDATE_EMAIL)) {
 
                         //update email address
@@ -359,12 +384,7 @@ class ResponseService
 
                         //ask user to enter name
                         $this->responseData = ResponseMessages::enterNameMessage($text, $customerPhoneNumber, false);
-                    } 
-                    
-                    elseif (preg_match("([aA-zZ] [aA-zZ])", $text)) {
-
-                        //find user with this phone number
-                        $user = $userService->getUserByPhoneNumber($customerPhoneNumber);
+                    } elseif (preg_match("([aA-zZ] [aA-zZ])", $text)) {
 
                         //check for temp_email
                         if ($user and $user->temp_email) {
@@ -393,10 +413,12 @@ class ResponseService
                                 $customerPhoneNumber,
                                 false
                             );
-                        } else $this->responseData = ResponseMessages::errorMessage($customerPhoneNumber, false);
+                        } 
+                        
+                        else $this->responseData = ResponseMessages::errorMessage($customerPhoneNumber, false);
+                    } 
                     
-                    } else $this->responseData = ResponseMessages::welcomeMessage($customerPhoneNumber, false, false);
-                
+                    else $this->responseData = ResponseMessages::welcomeMessage($customerPhoneNumber, false, false);
                 } 
                 
                 elseif ($incomingMessageType === Utils::INTERACTIVE) {
@@ -457,34 +479,39 @@ class ResponseService
                 //Send user dashboard message
                 $this->responseData = ResponseMessages::dashboardMessage($user);
             }
+        } 
         
-        }
-        
-        elseif($this->origin == Utils::ADMIN_EVENTS) {
-            
-            $errand = $this->data['errand'];
+        elseif ($this->origin == Utils::ADMIN_EVENTS) {
 
-            if($errand) {
-                $customerPhoneNumber = $this->data['phone'];
-                $method = $this->data['method'];
-                $this->responseData = ResponseMessages::notifyAdmin($customerPhoneNumber, $errand, $method);
+            $eventType = $this->data['type'];
+
+            if ($eventType === Utils::ADMIN_USER_ORDER_NOTIFY) {
+                
+                $errand = $this->data['errand'];
+
+                if ($errand) {
+
+                    $customerPhoneNumber = $this->data['phone'];
+                    $method = $this->data['method'];
+
+                    $this->responseData = ResponseMessages::notifyAdmin($customerPhoneNumber, $errand, $method);
+                }
             }
-        }
-        
-        else {
+
+            elseif($eventType === Utils::ADMIN_PROCESS_USER_ORDER) {
+                
+                $this->responseData = ResponseMessages::userOrderProcessed($this->data['customerPhone'], $this->data['order'], $this->data['dispatcher'], $this->data['fee']);
+            }
+
+        } else {
             //send error message
         }
     }
-
-    public function getResult()
-    {
-        return $this->responseData;
-    }
-
+    
     public function sendResponse()
     {
         $whatsAppId = env('WHATSAPP_PHONE_NUMBER_ID');
-        
+
         Http::withToken(env('WHATSAPP_ACCESS_KEY'))
             ->withHeaders(['Content-type' => 'application/json'])
             ->post("https://graph.facebook.com/v16.0/$whatsAppId/messages", $this->responseData);
