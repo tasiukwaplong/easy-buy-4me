@@ -18,6 +18,7 @@ return new class extends Migration
 
             $table->string('phone')->unique();
             $table->string('first_name')->nullable();
+            $table->boolean('is_admin')->default(false);
             $table->string('last_name')->nullable();
             $table->string('email')->unique()->nullable();
             $table->string('temp_email')->unique()->nullable();

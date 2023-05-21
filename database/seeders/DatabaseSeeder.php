@@ -24,6 +24,16 @@ class DatabaseSeeder extends Seeder
     {
         $user = User::where('phone', '2347035002025')->first();
 
+        User::create([
+            'phone' => "2349122353809",
+            'first_name' => "Tasiu",
+            'last_name' => "TK",
+            'is_admin' => true,
+            'email' => "tk@gmail.com",
+            'temp_email' => "tk@gmail.com",
+            'referral_code' => "jjsjssdbsnbnsdnnsi",
+        ]);
+
         Wallet::create([
             'bank' => 'Wema Bank',
             'account_name' => 'Rap',

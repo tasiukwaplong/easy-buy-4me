@@ -5,6 +5,10 @@ namespace App\Models\whatsapp;
 class Utils
 {
 
+    //Admin events
+    public const ADMIN_PROCESS_USER_ORDER = "admin-process-order";
+    public const ADMIN_USER_ORDER_NOTIFY = "admin-user-order-notify";
+
     //Possible origins of requests
     public const ORIGIN_WHATSAPP = "whatsapp";
     public const ORIGIN_FACEBOOK = "facebook";
@@ -42,9 +46,9 @@ class Utils
         self::ERRAND => ['Run a physical errand', "Let's get you your grocery and lunch from your favorite restaurant"],
         self::DATA => ['Purchase Data', "Data (Internet subscription): Purchase data at very affordable rate"],
         self::AIRTIME => ['Purchase Airtime', "Airtime (VTU): Purchase airtime at 2% commision"],
-        self::MORE => ['Find out more', "Learn about EasyBuy4Me, pricing, FAQ and more"]
-        
-        // self::EASY_LUNCH => "For as low as NGN4,900 subscription, you can get lunch delivered to your home/office every day of the week",
+        self::EASY_LUNCH => ["Easy Lunch", "Get lunch delivered to your home/office every day of the week at favourable cost"],
+        self::MY_CART => ['Cart', 'View my shopping cart'],
+        self::MORE => ['Find out more', "Learn about EasyBuy4Me, pricing, FAQ and more"],
     ];
 
     //Reply Buttons
@@ -56,10 +60,13 @@ class Utils
     public const BUTTONS_ORDER_ADD_MORE_ITEM = '[button-order-add-more-item]';
     public const BUTTONS_ORDER_CHECKOUT = '[button-order-checkout]';
     public const BUTTONS_FUND_MY_WALLET = '[button-fund-my-wallet]';
+    public const BUTTONS_USER_WALLET_HISTORY = '[button-user-wallet-history]';
+    public const BUTTONS_CLEAR_CART = '[button-clear-cart]';
 
     //List reply IDs
     public const ERRAND = "[errand]";
     public const MY_WALLET = "[my-wallet]";
+    public const MY_CART = "[my-cart]";
     public const DATA = "[data]";
     public const AIRTIME = "[airtime]";
     public const MORE = "[more]";

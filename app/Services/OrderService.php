@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Events\OrderProcessedEvent;
 use App\Models\Errand;
 use App\Models\Item;
 use App\Models\Order;
@@ -18,22 +19,12 @@ class OrderService
     public function findUserCurrentOrder(User $user)
     {
 
-        $order = $user->orders->filter(function ($order) {
-
-
-            $expiryTime = new DateTime($order->created_at);
-            $expiryTime->modify("+40 minute");
-            $now = new DateTime(now());
-
-            return $order->status == Utils::ORDER_STATUS_PROCESSING and
-                $expiryTime > $now;
-        })->first();
-
+        $order = $this->getUserPendingOrder($user);
 
         if (!$order) {
 
             $userCurrentOrders = $user->orders->filter(function ($order) {
-                return $order->status === Utils::ORDER_STATUS_PROCESSING;
+                return $order->status === Utils::ORDER_STATUS_INITIATED;
             })->all();
 
             foreach ($userCurrentOrders as $o) {
@@ -45,7 +36,7 @@ class OrderService
                 'order_id' => Random::generate(10),
                 'description' => "",
                 'total_amount' => 0.0,
-                'status' => Utils::ORDER_STATUS_PROCESSING,
+                'status' => Utils::ORDER_STATUS_INITIATED,
                 'user_id' => $user->id
             ]);
 
@@ -98,7 +89,7 @@ class OrderService
     public function getPreviousOrder(User $user)
     {
         $userOrder = $user->orders->filter(function ($order) {
-            return $order->status == Utils::ORDER_STATUS_PROCESSING;
+            return $order->status == Utils::ORDER_STATUS_INITIATED;
         })->sortBy(function ($order) {
             return $order->created_at;
         })
@@ -114,6 +105,15 @@ class OrderService
             $order->status = Utils::ORDER_STATUS_CANCELLED;
             $order->save();
         }
+    }
+
+    public function clearCart(User $user) {
+
+        $order = $user->orders->filter(function($order) {
+            return $order->status == Utils::ORDER_STATUS_INITIATED;})
+        ->first();
+
+        return Order::destroy($order->id); 
     }
 
     public function performCheckout($orderId, $walletId)
@@ -165,7 +165,7 @@ class OrderService
                         'order_id' => $order->id
                     ]);
 
-                    $order->status = Utils::ORDER_STATUS_INITIATED;
+                    $order->status = Utils::ORDER_STATUS_PROCESSING;
                     $order->save();
 
                     return $errand;
@@ -202,7 +202,7 @@ class OrderService
                         'order_id' => $order->id
                     ]);
 
-                    $order->status = Utils::ORDER_STATUS_INITIATED;
+                    $order->status = Utils::ORDER_STATUS_PROCESSING;
                     $order->save();
                     
                     return $errand;
@@ -216,5 +216,48 @@ class OrderService
 
         return $errand;
     }
+
+    public function processOrder($orderId, $dispatcher, $fee, $customerPhone) {
+        
+        $order = Order::where('order_id', $orderId)->first();
+
+        if($order) {
+
+            $order->status = Utils::ORDER_STATUS_PROCESSING;
+            $order->save();
+
+            //create event for user order placed
+            event(new OrderProcessedEvent($order, $dispatcher, $fee, $customerPhone));
+            return $order;
+        }
+
+        return false;
+    }
+
+    public static function orderSummary(Order $order) {
+
+        $orderSummary = "";
+
+        foreach (OrderedItem::where('order_id', $order->id)->get() as $orI) {
+            $i = Item::find($orI->item_id);
+            $orderSummary = $orderSummary . "$i->item_name - N$i->item_price per $i->unit_name ($orI->quantity$i->unit_name)\n";
+        }
+
+        return $orderSummary . "\nTotal Amount: *$order->total_amount*\n\n";
+    }
+
+    public function getUserPendingOrder($user) {
+
+        return $user->orders->filter(function ($order) {
+
+            $expiryTime = new DateTime($order->created_at);
+            $expiryTime->modify("+150 minute");
+            $now = new DateTime(now());
+
+            return ($order->status == Utils::ORDER_STATUS_INITIATED) and
+                $expiryTime > $now;
+
+        })->first();
+    } 
 
 }
