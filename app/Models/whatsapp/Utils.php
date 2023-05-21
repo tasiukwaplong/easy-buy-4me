@@ -46,7 +46,7 @@ class Utils
         self::ERRAND => ['Run a physical errand', "Let's get you your grocery and lunch from your favorite restaurant"],
         self::DATA => ['Purchase Data', "Data (Internet subscription): Purchase data at very affordable rate"],
         self::AIRTIME => ['Purchase Airtime', "Airtime (VTU): Purchase airtime at 2% commision"],
-        self::EASY_LUNCH => ["Easy Lunch", "Get lunch delivered to your home/office every day of the week at favourable cost"],
+        self::EASY_LUNCH => ["Easy Lunch", "Get lunch delivered to your home/office every day of the week"],
         self::MY_CART => ['Cart', 'View my shopping cart'],
         self::MORE => ['Find out more', "Learn about EasyBuy4Me, pricing, FAQ and more"],
     ];
