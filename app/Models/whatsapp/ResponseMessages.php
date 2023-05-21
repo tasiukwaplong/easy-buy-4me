@@ -22,6 +22,44 @@ use App\Services\UserService;
 class ResponseMessages
 {
 
+    public static function showMore($customerPhoneNumber)
+    {
+        $body = "EasyBuy4Me is an innovative errands and logistics company that specializes in providing physical and digital errands services to our customers, leveraging technology and our experienced team to deliver seamless and reliable services.\n\n" .
+            "*Website:* https://www.easybuy4me.com\n" .
+            "*Facebook:* https://facebook.com/easybuy4me\n" .
+            "*Twitter:* https://twitter.com/easybuy4me\n" .
+            "*Instagram:* https://www.instagram.com/easybuy4me\n\n" .
+            "*Upcoming Features*\n" .
+            "_*Subscribe to trends, sports, news*_\n" .
+            "_*Pay remitta*_\n\n" .
+            "info.easybuy4me@gmail.com | +2349031514346";
+
+        $header = new Header(Utils::TEXT, "About EasyBuy4Me");
+
+        $action = ['buttons' => array(
+            [
+                "type" => Utils::REPLY,
+                "reply" => [
+                    "id" => Utils::BUTTONS_SUPPORT,
+                    "title" => "SUPPORT"
+                ]
+            ],
+            [
+                "type" => Utils::REPLY,
+                "reply" => [
+                    "id" => Utils::BUTTONS_GO_TO_DASHBOARD,
+                    "title" => "DASHBOARD"
+                ]
+            ]
+        )];
+
+        $interactive = new Interactive(Utils::BUTTON, $header, ['text' => $body], ['text' => "@easyBuy4me"], $action);
+
+        $interactiveSendMessage = new InteractiveSendMessage($customerPhoneNumber, Utils::INTERACTIVE, $interactive);
+
+        return $interactiveSendMessage;
+    }
+
     public static function userWallets($customerPhoneNumber, $userWallets)
     {
 

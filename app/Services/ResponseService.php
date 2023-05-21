@@ -106,6 +106,11 @@ class ResponseService
 
                         switch ($interactiveMessageId) {
 
+                            case Utils::MORE: {
+                                $this->responseData = ResponseMessages::showMore($customerPhoneNumber);
+                                break;
+                            }
+
                             case Utils::MY_WALLET: {
                                 $user = $userService->getUserByPhoneNumber($customerPhoneNumber);
                                 $this->responseData = ResponseMessages::userWallets($customerPhoneNumber, $user->wallets);
@@ -501,6 +506,8 @@ class ResponseService
             elseif($eventType === Utils::ADMIN_PROCESS_USER_ORDER) {
                 
                 $this->responseData = ResponseMessages::userOrderProcessed($this->data['customerPhone'], $this->data['order'], $this->data['dispatcher'], $this->data['fee']);
+                
+                //send reciept to user
             }
 
         } else {
@@ -508,13 +515,18 @@ class ResponseService
         }
     }
 
+    public function getResult()
+    {
+        return $this->responseData;
+    }
+
     public function sendResponse()
     {
         $whatsAppId = env('WHATSAPP_PHONE_NUMBER_ID');
 
-        Http::withToken(env('WHATSAPP_ACCESS_KEY'))
-            ->withHeaders(['Content-type' => 'application/json'])
-            ->post("https://graph.facebook.com/v16.0/$whatsAppId/messages", $this->responseData);
+        // Http::withToken(env('WHATSAPP_ACCESS_KEY'))
+        //     ->withHeaders(['Content-type' => 'application/json'])
+        //     ->post("https://graph.facebook.com/v16.0/$whatsAppId/messages", $this->responseData);
     }
 
     private function cleanMessage($interactiveMessageId)
