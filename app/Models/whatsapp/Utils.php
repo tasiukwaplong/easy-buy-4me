@@ -53,6 +53,8 @@ class Utils
 
     //Reply Buttons
     public const BUTTONS_START_AGAIN = '[button-start-again]';
+    public const BUTTONS_EASY_LUNCH_SUB_PAY_NOW = '[button-easy-lunch-sub-pay-now]';
+    public const BUTTONS_EASY_LUNCH_SUB_PAY_LATER = '[button-easy-lunch-sub-pay-later]';
     public const BUTTONS_SUPPORT = '[button-support]';
     public const BUTTONS_GUEST_BEGIN = '[button-guest-begin]';
     public const BUTTONS_VIEW_SERVICES = '[button-view-services]';

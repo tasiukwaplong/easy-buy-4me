@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class User extends Model
@@ -18,7 +19,7 @@ class User extends Model
         'email',
         'temp_email',
         'referral_code',
-        'referred_by'
+        'referred_by',
     ];
 
     public function wallets(): HasMany

@@ -16,7 +16,7 @@ use Nette\Utils\Random;
 class OrderService
 {
 
-    public function findUserCurrentOrder(User $user)
+    public function findUserCurrentOrder(User $user, $description = false, $amount = false)
     {
 
         $order = $this->getUserPendingOrder($user);
@@ -33,9 +33,9 @@ class OrderService
             }
 
             $order = Order::create([
-                'order_id' => Random::generate(10),
-                'description' => "",
-                'total_amount' => 0.0,
+                'order_id' => strtoupper(Random::generate(15)),
+                'description' => $description ? $description : "",
+                'total_amount' => $amount ? $amount : 0.0,
                 'status' => Utils::ORDER_STATUS_INITIATED,
                 'user_id' => $user->id
             ]);
@@ -107,8 +107,8 @@ class OrderService
         }
     }
 
-    public function clearCart(User $user) {
-
+    public function clearCart(User $user) 
+    {
         $order = $user->orders->filter(function($order) {
             return $order->status == Utils::ORDER_STATUS_INITIATED;})
         ->first();
@@ -174,7 +174,7 @@ class OrderService
                 return false;
             } 
 
-            elseif(in_array($walletId, ['delivery', 'transfer', 'online'])) {
+            elseif(in_array($walletId, ['delivery', 'transfer', 'online', 'easylunch'])) {
                  //Create a new Errand
                  $errand = Errand::create([
                     'destination_phone' => $user->phone,
@@ -201,6 +201,9 @@ class OrderService
                         'status' => Utils::ORDER_STATUS_INITIATED,
                         'order_id' => $order->id
                     ]);
+
+                    $wallet->balance -= $order->total_amount;
+                    $wallet->save();
 
                     $order->status = Utils::ORDER_STATUS_PROCESSING;
                     $order->save();
@@ -243,7 +246,7 @@ class OrderService
             $orderSummary = $orderSummary . "$i->item_name - N$i->item_price per $i->unit_name ($orI->quantity$i->unit_name)\n";
         }
 
-        return $orderSummary . "\nTotal Amount: *$order->total_amount*\n\n";
+        return (strlen($orderSummary) > 1) ? $orderSummary . "\nTotal Amount: *$order->total_amount*\n\n" : $order->description;
     }
 
     public function getUserPendingOrder($user) {
@@ -251,7 +254,7 @@ class OrderService
         return $user->orders->filter(function ($order) {
 
             $expiryTime = new DateTime($order->created_at);
-            $expiryTime->modify("+150 minute");
+            $expiryTime->modify("+15 minute");
             $now = new DateTime(now());
 
             return ($order->status == Utils::ORDER_STATUS_INITIATED) and

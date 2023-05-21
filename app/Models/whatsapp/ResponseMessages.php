@@ -2,6 +2,7 @@
 
 namespace App\Models\whatsapp;
 
+use App\Models\EasyLunchSubscribers;
 use App\Models\Errand;
 use App\Models\Order;
 use App\Models\User;
@@ -22,8 +23,108 @@ use App\Services\UserService;
 class ResponseMessages
 {
 
-    public static function showSupport($customerPhoneNumber, User $admin) {
-        
+    public static function easyLunchPayLater($customerPhoneNumber) {
+        $body = "Your current order have been saved\nKindly pay as soon as possible.\n\n*Kindly note that this order will no longer exist after 15 munites from now.";
+        $header = new Header(Utils::TEXT, "Pay Later");
+
+        $action = ['buttons' => array(
+            [
+                "type" => Utils::REPLY,
+                "reply" => [
+                    "id" => Utils::BUTTONS_GO_TO_DASHBOARD,
+                    "title" => "DASHBOARD"
+                ]
+            ]
+        )];
+
+        $interactive = new Interactive(Utils::BUTTON, $header, ['text' => $body], ['text' => "@easyBuy4me"], $action);
+
+        $interactiveSendMessage = new InteractiveSendMessage($customerPhoneNumber, Utils::INTERACTIVE, $interactive);
+
+        return $interactiveSendMessage;
+    }
+
+    public static function easyLunchSubscribed($customerPhoneNumber, EasyLunchSubscribers $easyLunchSubscriber)
+    {
+        $body = "Subscription added successfully\n\nKindly choose one of the options below";
+        $header = new Header(Utils::TEXT, "Subsription Success");
+
+        $action = ['buttons' => array(
+            [
+                "type" => Utils::REPLY,
+                "reply" => [
+                    "id" => "[button-easy-lunch-sub-pay-now:$easyLunchSubscriber->id]",
+                    "title" => "PAY NOW"
+                ]
+            ],
+            [
+                "type" => Utils::REPLY,
+                "reply" => [
+                    "id" => Utils::BUTTONS_EASY_LUNCH_SUB_PAY_LATER,
+                    "title" => "PAY LATER"
+                ]
+            ]
+        )];
+
+        $interactive = new Interactive(Utils::BUTTON, $header, ['text' => $body], ['text' => "@easyBuy4me"], $action);
+
+        $interactiveSendMessage = new InteractiveSendMessage($customerPhoneNumber, Utils::INTERACTIVE, $interactive);
+
+        return $interactiveSendMessage;
+    }
+
+    public static function easyLunchHome(User $user, $easyLunches, $activeSub)
+    {
+        if(!$activeSub) {
+            $bodyContent = $easyLunches->reduce(function ($initial, $easyLunch) {
+                return $initial . "The *$easyLunch->name package* which costs N$easyLunch->cost_per_week per week and N$easyLunch->cost_per_month for a month";
+            }, "EasyLaunch is a subscription package designed to provide customers with a meal 🍲 choice option within the 5 working days, ensuring that they receive a daily meal of their choice.\nThere are two package options available for customers\n\n");
+    
+            $bodyContent .= "Customers are expected to choose their preferred meal for the day from the list of meal available to them on the *EASY LUNCH* menu on the *DASHBOARD* every morning.\n\nTap the *MENU* below to subscribe";
+    
+            $weeklyPackages = [];
+            $monthlyPackages = [];
+    
+            foreach ($easyLunches as $easyLunch) {
+                if ($easyLunch->cost_per_week > 0)
+                    array_push($weeklyPackages, new Row("[subscribe-easylunch-weekly:$easyLunch->id:$easyLunch->cost_per_week]", ucwords($easyLunch->name . " (weekly)"), "Costs N$easyLunch->cost_per_week"));
+                if ($easyLunch->cost_per_month > 0)
+                    array_push($monthlyPackages, new Row("[subscribe-easylunch-monthly:$easyLunch->id:$easyLunch->cost_per_month]", ucwords($easyLunch->name . " (monthly)"), "Costs N$easyLunch->cost_per_month"));
+            }
+    
+            //Build section
+            $weeklySection = new Section("Weekly Packages", $weeklyPackages);
+            $monthlySection = new Section("Monthly Packages", $monthlyPackages);
+    
+            $allSections = array();
+            if (count($weeklySection->rows) > 0)
+                array_push($allSections, $weeklySection);
+    
+            if (count($monthlySection->rows) > 0)
+                array_push($allSections, $monthlySection);
+    
+            //Build Action
+            $action = new Action("EASY LUNCH", $allSections);
+    
+            //Build a footer
+            $footer = ['text' => "@easybuy4me"];
+    
+            $body = ['text' => $bodyContent];
+    
+            $header = new Header(Utils::TEXT, "EASY LUNCH SERVICE");
+    
+            $interactive = new Interactive(Utils::LIST, $header, $body, $footer, $action);
+    
+            $interactiveSendMessage = new InteractiveSendMessage($user->phone, Utils::INTERACTIVE, $interactive);
+    
+            return $interactiveSendMessage;
+        }
+        else return self::errandOrderFood($user->phone, true);
+    }
+
+    public static function showSupport($customerPhoneNumber, User $admin)
+    {
+
         $body = "You can support me via the following accounts\n\n*3676367393*\nAccess Bank\nMNFY/ Tasiu Kwap\n\n*983983786*\nMonie Point Bank\nMNFY/ Tasiu Kwap\n\n*001972626*\nWema Bank\nMNFY/ Tasiu Kwap\n\nOr chat with an admin via https://wa.me/$admin->phone";
         $header = new Header(Utils::TEXT, "Support Me");
 
@@ -215,7 +316,7 @@ class ResponseMessages
         return self::textMessage($body, $customerPhoneNumber, false);
     }
 
-    public static function userOrderPlaced(string $customerPhoneNumber, Errand $errand)
+    public static function userOrderPlaced(string $customerPhoneNumber)
     {
 
         $body = "Hey! Thanks for believing in me. I am on my way to run your errand. I will update you as soon as possible. Meanwhile, tap *DASHBOARD* to checkout other stuff I can do for you";
@@ -391,7 +492,7 @@ class ResponseMessages
         }
     }
 
-    public static function confirmOrderCheckout($customerPhoneNumber, Order $order)
+    public static function confirmOrderCheckout($customerPhoneNumber, Order $order, $easylunchRequest)
     {
 
         $orderSummary = OrderService::orderSummary($order);
@@ -404,7 +505,7 @@ class ResponseMessages
             [
                 "type" => Utils::REPLY,
                 "reply" => [
-                    "id" => "[order-confirm-yes:$order->id]",
+                    "id" => $easylunchRequest ? "[order-confirm-yes:$order->id:easylunch]" : "[order-confirm-yes:$order->id]",
                     "title" => "YES, CONTINUE"
                 ]
             ],
@@ -479,14 +580,22 @@ class ResponseMessages
         return $interactiveSendMessage;
     }
 
-    public static function currentOrder($customerPhoneNumber, Order $order)
+    public static function currentOrder($customerPhoneNumber, Order $order, $easylunchRequest = false)
     {
 
         $body = $order->description . "\n\n*Total amount:* $order->total_amount \n\n*ADD MORE* to add items from current vendor or *OTHERS* to add from other vendors";
 
         $header = new Header(Utils::TEXT, "Order Details");
 
-        $action = ['buttons' => array(
+        $action = $easylunchRequest ? ['buttons' => array(
+            [
+                "type" => Utils::REPLY,
+                "reply" => [
+                    "id" => "[button-order-checkout:$order->id]",
+                    "title" => "PAY NOW"
+                ]
+            ]
+        )] : ['buttons' => array(
             [
                 "type" => Utils::REPLY,
                 "reply" => [
@@ -518,7 +627,7 @@ class ResponseMessages
         return $interactiveSendMessage;
     }
 
-    public static function vendorCatalog($customerPhoneNumber, Vendor $vendor)
+    public static function vendorCatalog($customerPhoneNumber, Vendor $vendor, $easylunchRequest)
     {
 
         $vendorItems = $vendor->items;
@@ -532,7 +641,7 @@ class ResponseMessages
 
             foreach ($vendorItems as $vendorItem) {
 
-                $id = "[order-" . $vendor->id . ":" . $vendorItem->id . "]";
+                $id = $easylunchRequest ? "[order-" . $vendor->id . ":" . $vendorItem->id . ":easylunch" . "]" : "[order-" . $vendor->id . ":" . $vendorItem->id . "]";
                 $description = $vendorItem->item_name . " - " . "N" . $vendorItem->item_price . " per " . $vendorItem->unit_name;
 
                 $row = new Row($id, $vendorItem->item_name, $description);
@@ -732,12 +841,12 @@ class ResponseMessages
         }
     }
 
-    public static function errandOrderFood($customerPhoneNumber)
+    public static function errandOrderFood($customerPhoneNumber, $easyLunch)
     {
 
         $errandService = new ErrandService();
 
-        $errandServicesOptions = $errandService->getErrandService(Utils::ERRAND_ORDER_FOOD);
+        $errandServicesOptions = $errandService->getErrandService(Utils::ERRAND_ORDER_FOOD, $easyLunch);
         $bodyContent = "Need to buy food but don’t want to move out?\n\nCheck out the list of vendors, I can help you buy and deliver to your doorstep.\n\nTap *FOOD VENDORS* to select a food vendor";
         $optionsArray = $errandServicesOptions['options'];
 

@@ -47,7 +47,7 @@ class ErrandService
     }
 
 
-    public function getErrandService(string $key)
+    public function getErrandService(string $key, $easylunch = false)
     {
 
         if ($key == self::ORDER_FOOD) {
@@ -56,7 +56,11 @@ class ErrandService
             $options = array();
 
             foreach ($vendors as $vendor) {
+                if($easylunch)
+                $options["[Order from " . $vendor->name .":easylunch" . "]"] = $vendor->description;
+                else
                 $options["[Order from " . $vendor->name . "]"] = $vendor->description;
+
             }
 
             $arrToReturn["options"] = $options;
