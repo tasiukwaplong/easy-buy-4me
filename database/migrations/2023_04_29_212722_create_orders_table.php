@@ -16,7 +16,7 @@ return new class extends Migration
             
             $table->id();
 
-            $table->string('order_id');
+            $table->string('order_id')->unique();
             $table->string('description');
             $table->integer('status');
 

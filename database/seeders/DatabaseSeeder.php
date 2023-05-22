@@ -11,6 +11,7 @@ use App\Models\OrderedItem;
 use App\Models\User;
 use App\Models\Vendor;
 use App\Models\Wallet;
+use App\Models\whatsapp\Utils;
 use App\utils\Helpers;
 use Illuminate\Database\Seeder;
 use Nette\Utils\Random;
@@ -26,7 +27,7 @@ class DatabaseSeeder extends Seeder
         // $user = User::where('phone', '2347035002025')->first();
 
         User::create([
-            'phone' => "2349122353809",
+            'phone' => "2349031514346",
             'first_name' => "Tasiu",
             'last_name' => "TK",
             'is_admin' => true,
@@ -51,14 +52,14 @@ class DatabaseSeeder extends Seeder
             'account_number' => '5000383664',
             'account_reference' => 'ezeraphgmailcomi0bv7j',
             'bank_code' => '035',
-            'balance' => 2000.00,
+            'balance' => 200000.00,
             'user_id' => $user->id
         ]);
 
         $firstVendor = Vendor::create([
             'name' => 'Chicken Republic',
             'phone' => '07035002025',
-            'imageUrl' => "",
+            'imageUrl' => Utils::ERRAND_BANNAER,
             'description' => "first vendor description",
             'address' => 'Jos Road Lafia, Nasarawa State'
         ]);
@@ -66,7 +67,7 @@ class DatabaseSeeder extends Seeder
         $secondVendor = Vendor::create([
             'name' => 'Madam 10 10 Restaurant',
             'phone' => '07035002025',
-            'imageUrl' => "",
+            'imageUrl' => Utils::ERRAND_BANNAER,
             'description' => "second vendor description",
             'address' => 'Gandu, near FULafia, Lafia, Nasarawa State'
         ]);

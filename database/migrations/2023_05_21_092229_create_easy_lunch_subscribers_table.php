@@ -19,10 +19,15 @@ return new class extends Migration
 
             $table->string('package_type');
             $table->unsignedDecimal('amount');
-            $table->dateTime('expiry_date')->nullable();
+            $table->unsignedBigInteger('orders_remaining')->nullable();
+            $table->date('last_used')->nullable();
+            $table->string('last_order')->nullable();
+            $table->boolean('paid')->default(false);
+            
             $table->timestamps();
 
             $table->foreign('user_id')->references('id')->on('users')->cascadeOnDelete()->cascadeOnUpdate();
+            $table->foreign('last_order')->references('order_id')->on('orders')->cascadeOnDelete()->cascadeOnUpdate();
             $table->foreign('easy_lunch_id')->references('id')->on('easy_lunches')->cascadeOnDelete()->cascadeOnUpdate();
 
         });

@@ -9,5 +9,5 @@ class EasyLunchSubscribers extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['user_id', 'easy_lunch_id', 'package_type', 'amount', 'expiry_date'];
+    protected $fillable = ['user_id', 'easy_lunch_id', 'package_type', 'amount', 'orders_remaining', 'last_used', 'last_order'];
 }

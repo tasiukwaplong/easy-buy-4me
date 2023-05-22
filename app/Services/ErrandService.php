@@ -57,9 +57,9 @@ class ErrandService
 
             foreach ($vendors as $vendor) {
                 if ($easylunch)
-                    $options["[Order from " . $vendor->name . ":easylunch" . "]"] = $vendor->description;
+                    $options["[Order from " . $vendor->id . ":el" . "]"] = $vendor->description;
                 else
-                    $options["[Order from " . $vendor->name . "]"] = $vendor->description;
+                    $options["[Order from " . $vendor->id . "]"] = $vendor->description;
             }
 
             $arrToReturn["options"] = $options;

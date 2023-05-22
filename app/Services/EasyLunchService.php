@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\EasyLunchSubscribers;
 use App\Models\User;
+use App\Models\whatsapp\Utils;
 use DateTime;
 
 class EasyLunchService
@@ -20,15 +21,17 @@ class EasyLunchService
      * @param [type] $amount amount to be paid
      * @return EasyLunchSubscribers 
      */
-    public function subscribeUser($type, $userId, $easyLunchId, $amount) : EasyLunchSubscribers
+    public function subscribeUser($type, $userId, $easyLunchId, $amount): EasyLunchSubscribers
     {
+        $ordersRemaining = ($type == Utils::EASY_LUNCH_TYPE_WEEKLY) ? 5 : 20;
 
         $easyLunchSubscriber = EasyLunchSubscribers::where('user_id', $userId)->first() ??
             EasyLunchSubscribers::create([
                 'user_id' => $userId,
                 'easy_lunch_id' => $easyLunchId,
                 'package_type' => $type,
-                'amount' => $amount
+                'amount' => $amount,
+                'orders_remaining' => $ordersRemaining
             ]);
 
         return $easyLunchSubscriber;
@@ -41,18 +44,9 @@ class EasyLunchService
      * @param User $user
      * @return boolean
      */
-    public function isActive(User $user) {
-
+    public function isActive(User $user)
+    {
         $easyLunchSubscriber = EasyLunchSubscribers::where('user_id', $user->id)->first();
-
-        if($easyLunchSubscriber) {
-
-            $expiryTime = new DateTime($easyLunchSubscriber->expiry_date);
-            $now = new DateTime(now());
-
-            return $expiryTime > $now;
-        }
-        
-        return false;
+        return $easyLunchSubscriber and $easyLunchSubscriber->orders_remaining > 0 and $easyLunchSubscriber->paid;
     }
 }
