@@ -61,6 +61,7 @@ class AuthService
                 $user->temp_email === $decryptedParts[2] &&
                 env('APP_KEY') === $decryptedParts[3] &&
                 $confirmationToken->expires_in === $decryptedParts[4];
+                
         } catch (DecryptException $exception) {
             return false;
         }

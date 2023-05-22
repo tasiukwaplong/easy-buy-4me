@@ -595,7 +595,8 @@ class ResponseMessages
                     "title" => "PAY NOW"
                 ]
             ]
-        )] : ['buttons' => array(
+        )] : 
+        ['buttons' => array(
             [
                 "type" => Utils::REPLY,
                 "reply" => [

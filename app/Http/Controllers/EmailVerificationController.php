@@ -47,12 +47,11 @@ class EmailVerificationController extends Controller
                 $walletService->createWallet($user);
 
                 event(new RegistrationCompleteEvent($user));
-
-                //Redirect back to whatsapp
-                $phone = env('WHATSAPP_PHONE_NUMBER');
-
-                return Redirect::to("https://wa.me/$phone");
             }
+            
+            //Redirect back to whatsapp
+            $phone = env('WHATSAPP_PHONE_NUMBER');
+            return Redirect::to("https://wa.me/$phone");
         }
     }
 }

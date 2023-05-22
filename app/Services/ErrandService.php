@@ -56,16 +56,14 @@ class ErrandService
             $options = array();
 
             foreach ($vendors as $vendor) {
-                if($easylunch)
-                $options["[Order from " . $vendor->name .":easylunch" . "]"] = $vendor->description;
+                if ($easylunch)
+                    $options["[Order from " . $vendor->name . ":easylunch" . "]"] = $vendor->description;
                 else
-                $options["[Order from " . $vendor->name . "]"] = $vendor->description;
-
+                    $options["[Order from " . $vendor->name . "]"] = $vendor->description;
             }
 
             $arrToReturn["options"] = $options;
             return $arrToReturn;
-
         } elseif ($key == self::GROCERY_SHOPPING) {
 
             $vendors = self::getVendorsWithCategory('grocery');
@@ -79,13 +77,11 @@ class ErrandService
 
             $arrToReturn["options"] = $options;
             return $arrToReturn;
-
         } elseif ($key == self::ITEM_PICK_UP) {
 
             return array(
                 'message' => "Please, contact our agent if you are in need for someone to help you run an errand"
             );
-
         } elseif ($key == self::OTHER_ITEMS) {
 
             $vendors = self::getVendorsWithCategory('other');
@@ -111,7 +107,7 @@ class ErrandService
 
             $arrToReturn["options"] = $options;
             return $arrToReturn;
-
+            
         } elseif ($key == self::CUSTOM) {
 
             $text = "Hello...";
@@ -131,7 +127,7 @@ class ErrandService
     {
         $vendor = Vendor::find($vendorId);
         $items = $vendor->items()->get();
-       
+
         return array(
             'image' => $vendor->imageUrl,
             'items' => $items,

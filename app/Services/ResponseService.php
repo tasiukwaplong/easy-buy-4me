@@ -20,7 +20,7 @@ class ResponseService
 
     private string $origin;
     private $data;
-    private SendMessage $responseData;
+    private $responseData;
 
     public function __construct(string $origin, $data)
     {
@@ -47,13 +47,14 @@ class ResponseService
     }
 
     /**
-     * Undocumented function
+     * Function to process all whatsapp related requests
      *
      * @return void
      */
     private function processWhatsappRequest()
     {
         $userService = new UserService();
+        $orderService = new OrderService();
 
         if ($this->origin === Utils::ORIGIN_WHATSAPP) {
 
@@ -83,12 +84,13 @@ class ResponseService
                             $dispatcherPhone = $parts[1];
                             $fee = $parts[2];
 
-                            $orderService = new OrderService();
                             $order = $orderService->processOrder($orderId, $dispatcherPhone, $fee, $customerPhoneNumber);
 
                             $this->responseData = ResponseMessages::adminOrderProcessedSuccess($customerPhoneNumber, $order);
                         }
-                    } else {
+                    } 
+                    
+                    else {
                         //process text based message
                         //Get the text
                         $text = strtolower($incomingMessage['text']['body']);
@@ -102,13 +104,14 @@ class ResponseService
 
                     $interactiveMessage = $incomingMessage['interactive'];
 
-                    if ($interactiveMessage['type'] === Utils::LIST_REPLY) {
+                    if ($interactiveMessage['type'] == Utils::LIST_REPLY) {
 
                         $interactiveMessageId = $interactiveMessage[Utils::LIST_REPLY]['id'];
 
                         switch ($interactiveMessageId) {
 
                             case Utils::EASY_LUNCH: {
+
                                 $user = $userService->getUserByPhoneNumber($customerPhoneNumber);
 
                                 $easyLunchService = new EasyLunchService();
@@ -131,8 +134,6 @@ class ResponseService
                             }
 
                             case Utils::MY_CART: {
-
-                                $orderService = new OrderService();
 
                                 $userPendingOrder = $orderService->getUserPendingOrder($user);
 
@@ -193,14 +194,11 @@ class ResponseService
 
                             $vendor = Vendor::where('name', $parts[0])->first();
                             $easylunchRequest = $parts[1] ?? false;
-
-                            if ($vendor) {
-                                $this->responseData = ResponseMessages::vendorCatalog($customerPhoneNumber, $vendor, $easylunchRequest);
-                            }
+                            
+                            $this->responseData = ResponseMessages::vendorCatalog($customerPhoneNumber, $vendor, $easylunchRequest);
 
                         } elseif (str_starts_with($messge, "order-")) {
 
-                            $orderService = new OrderService();
                             $order = $orderService->findUserCurrentOrder($user);
 
                             $parts = explode(":", str_replace("order-", "", $messge));
@@ -267,7 +265,6 @@ class ResponseService
                                 $this->responseData = ResponseMessages::userPayMethod($customerPhoneNumber, $orderId, $method);
                             }
 
-                            $orderService = new OrderService();
                             $errand = $orderService->performCheckout($orderId, $walletId);
 
                             if ($errand) {
@@ -310,7 +307,6 @@ class ResponseService
                                 
                                 $user = $userService->getUserByPhoneNumber($customerPhoneNumber);
                                 
-                                $orderService = new OrderService();
                                 $orderService->clearCart($user);
 
                                 $this->responseData = ResponseMessages::userCartCleared($customerPhoneNumber);
@@ -320,7 +316,6 @@ class ResponseService
 
                             case Utils::BUTTONS_ORDER_ADD_ITEM: {
 
-                                    $orderService = new OrderService();
                                     $order = $orderService->getPreviousOrder($user);
 
                                     if ($order) {
@@ -363,9 +358,9 @@ class ResponseService
                         }
                         
                         elseif(str_starts_with($messge, "button-easy-lunch-sub-pay-now:")) {
+                            
                             $easyLunchSubId = str_replace("button-easy-lunch-sub-pay-now:", "", $messge);
 
-                            $orderService = new OrderService();
                             $user = $userService->getUserByPhoneNumber($customerPhoneNumber);
                             $easyluchSub = EasyLunchSubscribers::find($easyLunchSubId);
 
@@ -380,6 +375,7 @@ class ResponseService
                             $orderId = str_replace("button-order-checkout:", "", $messge);
 
                             $user = $userService->getUserByPhoneNumber($customerPhoneNumber);
+
                             $easyLunchService = new EasyLunchService();
                             $easylunchRequest = $easyLunchService->isActive($user);
 
@@ -388,24 +384,25 @@ class ResponseService
                             if ($order) {
                                 $this->responseData = ResponseMessages::confirmOrderCheckout($customerPhoneNumber, $order, $easylunchRequest);
                             }
-                        } elseif (str_starts_with($messge, "order-confirm-")) {
+
+                        } 
+                        
+                        elseif (str_starts_with($messge, "order-confirm-")) {
 
                             $parts = explode(":", str_replace("order-confirm-", "", $messge));
 
                             $response = $parts[0];
                             $orderId = $parts[1];
-                            $easylunchRequest = $parts[2];
+                            $easylunchRequest = $parts[2] ?? false;
 
                             if ($response == 'yes') {
 
                                 if($easylunchRequest) {
 
-                                    $orderService = new OrderService();
-
                                     $errand = $orderService->performCheckout($orderId, "easylunch");
                                     event(new OrderPlacedEvent($customerPhoneNumber, $errand, "EASYLUNCH"));
 
-                                $this->responseData = ResponseMessages::userOrderPlaced($customerPhoneNumber);
+                                    $this->responseData = ResponseMessages::userOrderPlaced($customerPhoneNumber);
 
                                 } else {
 
@@ -414,7 +411,6 @@ class ResponseService
                                 
                             } else {
 
-                                $orderService = new OrderService();
                                 $orderService->cancelOrder($orderId);
 
                                 $this->responseData = ResponseMessages::dashboardMessage($user);
@@ -435,10 +431,8 @@ class ResponseService
 
                     $authService = new AuthService();
 
-                    //Create new user with referral code
-                    $userService->createUser([
-                        'phone' => $customerPhoneNumber,
-                    ]);
+                    //Create new user
+                    $userService->createUser(['phone' => $customerPhoneNumber]);
 
                     if (str_starts_with($text, 'ref-')) {
 
@@ -450,7 +444,7 @@ class ResponseService
                     }
 
                     //Check if its a verification code
-                    elseif (substr($text, 0, 5) === 'veri-') {
+                    elseif (substr($text, 0, 5) == 'veri-') {
 
                         if ($user and $authService->verifyCode($customerPhoneNumber, strtoupper($text))) {
 
@@ -472,12 +466,14 @@ class ResponseService
                         //update email address
                         $userService->updateUserParam([
                             'temp_email' => $text,
-                            'referral_code' => "ref-" . strtoupper(str_replace(".", "_", substr($text, 0, strpos($text, "@"))) . Random::generate(10, 'a-z'))
+                            'referral_code' => "ref-" . strtoupper(str_replace(".", "-", substr($text, 0, strpos($text, "@"))) . Random::generate(10, 'a-z'))
                         ], $customerPhoneNumber);
 
                         //ask user to enter name
                         $this->responseData = ResponseMessages::enterNameMessage($text, $customerPhoneNumber, false);
-                    } elseif (preg_match("([aA-zZ] [aA-zZ])", $text)) {
+                    } 
+                    
+                    elseif (preg_match("([aA-zZ] [aA-zZ])", $text)) {
 
                         //check for temp_email
                         if ($user and $user->temp_email) {
@@ -521,7 +517,6 @@ class ResponseService
                     if ($interactiveMessage['type'] === Utils::BUTTON_REPLY) {
 
                         switch ($interactiveMessage['button_reply']['id']) {
-
 
                             case Utils::BUTTONS_START_AGAIN: {
 
@@ -569,6 +564,7 @@ class ResponseService
             $user = $userService->getUserByPhoneNumber($this->data['phone']);
 
             if ($user) {
+                
                 //Send user dashboard message
                 $this->responseData = ResponseMessages::dashboardMessage($user);
             }
@@ -603,13 +599,22 @@ class ResponseService
         }
     }
 
+    public function getResult() {
+        return $this->responseData;
+    }
+
     public function sendResponse()
     {
         $whatsAppId = env('WHATSAPP_PHONE_NUMBER_ID');
+        $whatsApiVersion = env('WHATSAPP_API_VERSION');
 
-        Http::withToken(env('WHATSAPP_ACCESS_KEY'))
+        $response = Http::withToken(env('WHATSAPP_ACCESS_KEY'))
             ->withHeaders(['Content-type' => 'application/json'])
-            ->post("https://graph.facebook.com/v16.0/$whatsAppId/messages", $this->responseData);
+            ->post("https://graph.facebook.com/$whatsApiVersion/$whatsAppId/messages", $this->responseData);
+
+        if($response->successful()) {
+            $this->responseData = $response->json();
+        }
     }
 
     private function cleanMessage($interactiveMessageId)

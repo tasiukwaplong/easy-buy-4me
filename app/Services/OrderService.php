@@ -124,7 +124,6 @@ class OrderService
 
         $errand = Errand::where('order_id', $orderId)->first();
 
-
         if (!$errand and $order) {
 
             if ($walletId == "all") {
@@ -141,12 +140,10 @@ class OrderService
                      //update wallet balance
                      foreach($userWallets as $userWallet) {
 
-
                         $amt = $userWallet->balance - $orderAmount;
 
                         if($amt < 0) {
                            $orderAmount -= $userWallet->balance;
-
                            $userWallet->balance = 0.0;
                         }
                         else {
@@ -182,9 +179,10 @@ class OrderService
                     'status' => Utils::ORDER_STATUS_INITIATED,
                     'order_id' => $order->id
                 ]);
-                $order->status = Utils::ORDER_STATUS_INITIATED;
 
+                $order->status = Utils::ORDER_STATUS_INITIATED;
                 $order->save();
+
                 return $errand;
             }
 
@@ -194,6 +192,12 @@ class OrderService
 
                 if ($wallet and $wallet->balance > $order->total_amount) {
 
+                    $wallet->balance -= $order->total_amount;
+                    $wallet->save();
+
+                    $order->status = Utils::ORDER_STATUS_PROCESSING;
+                    $order->save();
+
                     //Create a new Errand
                     $errand = Errand::create([
                         'destination_phone' => $user->phone,
@@ -202,16 +206,9 @@ class OrderService
                         'order_id' => $order->id
                     ]);
 
-                    $wallet->balance -= $order->total_amount;
-                    $wallet->save();
-
-                    $order->status = Utils::ORDER_STATUS_PROCESSING;
-                    $order->save();
-                    
                     return $errand;
                 }
 
-                return false;
             }
 
             return false;
@@ -246,7 +243,7 @@ class OrderService
             $orderSummary = $orderSummary . "$i->item_name - N$i->item_price per $i->unit_name ($orI->quantity$i->unit_name)\n";
         }
 
-        return (strlen($orderSummary) > 1) ? $orderSummary . "\nTotal Amount: *$order->total_amount*\n\n" : $order->description;
+        return strlen($orderSummary) > 1 ? $orderSummary . "\nTotal Amount: *$order->total_amount*\n\n" : $order->description;
     }
 
     public function getUserPendingOrder($user) {
