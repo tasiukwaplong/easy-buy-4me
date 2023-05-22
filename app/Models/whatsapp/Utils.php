@@ -4,7 +4,6 @@ namespace App\Models\whatsapp;
 
 class Utils
 {
-
     //Admin events
     public const ADMIN_PROCESS_USER_ORDER = "admin-process-order";
     public const ADMIN_USER_ORDER_NOTIFY = "admin-user-order-notify";
@@ -36,9 +35,7 @@ class Utils
     const ERRAND_CUSTOM = '[errand-custom]';
 
     //Expected greetings
-    public const GREETINGS_FROM_CUSTOMER = ['hi', "what's up", 'xup', 'hey', 'hello', 'hey bot!', 'greetings', 'whatsup', 'watsup', 'sup', 'wassup', 'wasup'];
     public const GREETINGS_TO_CUSTOMER = ['Hi', 'Yo!', 'Howdy!', "What's up!", 'Hey!', 'Hello', 'Greetings'];
-
 
     //Dashboard menu
     public const DASHBOARD_MENU = [
@@ -53,6 +50,9 @@ class Utils
 
     //Reply Buttons
     public const BUTTONS_START_AGAIN = '[button-start-again]';
+    public const BUTTONS_EASY_LUNCH_SUB_PAY_NOW = '[button-easy-lunch-sub-pay-now]';
+    public const BUTTONS_EASY_LUNCH_SUB_PAY_LATER = '[button-easy-lunch-sub-pay-later]';
+    public const BUTTONS_SUPPORT = '[button-support]';
     public const BUTTONS_GUEST_BEGIN = '[button-guest-begin]';
     public const BUTTONS_VIEW_SERVICES = '[button-view-services]';
     public const BUTTONS_GO_TO_DASHBOARD = '[button-go-to-dashboard]';

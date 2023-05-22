@@ -59,10 +59,8 @@ class MonnifyController extends Controller
 
                 return response(['message' => "success"], 200);
             }
-
-            return response(['message' => "Unexpected request"], 400);
         }
-
+        
         return response(['message' => "Unexpected request"], 400);
     }
 }

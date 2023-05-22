@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 
+use App\Models\EasyLunch;
 use App\Models\Item;
 use App\Models\Order;
 use App\Models\OrderedItem;
@@ -22,7 +23,7 @@ class DatabaseSeeder extends Seeder
 
     public function run(): void
     {
-        $user = User::where('phone', '2347035002025')->first();
+        // $user = User::where('phone', '2347035002025')->first();
 
         User::create([
             'phone' => "2349122353809",
@@ -31,6 +32,16 @@ class DatabaseSeeder extends Seeder
             'is_admin' => true,
             'email' => "tk@gmail.com",
             'temp_email' => "tk@gmail.com",
+            'referral_code' => "jjsjssdbsnbnsdnssdnsi",
+        ]);
+
+        $user = User::create([
+            'phone' => "2347035002025",
+            'first_name' => "Ralph",
+            'last_name' => "Eze",
+            'is_admin' => false,
+            'email' => "ralphses@gmail.com",
+            'temp_email' => "ralphses@gmail.com",
             'referral_code' => "jjsjssdbsnbnsdnnsi",
         ]);
 
@@ -94,6 +105,18 @@ class DatabaseSeeder extends Seeder
             'short_description' => 'Chilled coca cola drink',
             'unit_name' => 'bottle',
             'vendor_id' => $secondVendor->id
+        ]);
+
+        EasyLunch::create([
+            'name' => "basic",
+            'cost_per_week' => "4900",
+            'cost_per_month' => "19500"
+        ]);
+
+        EasyLunch::create([
+            'name' => "standard",
+            'cost_per_week' => "7900",
+            'cost_per_month' => "29500"
         ]);
     }
 }

@@ -18,7 +18,7 @@ class User extends Model
         'email',
         'temp_email',
         'referral_code',
-        'referred_by'
+        'referred_by',
     ];
 
     public function wallets(): HasMany
@@ -31,7 +31,8 @@ class User extends Model
         return $this->hasMany(Transaction::class);
     }
 
-    public function orders() : HasMany {
+    public function orders() : HasMany 
+    {
         return $this->hasMany(Order::class);
     }
 }

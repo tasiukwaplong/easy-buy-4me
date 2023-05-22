@@ -19,7 +19,6 @@ class WalletService
      */
     public function createWallet(User $user)
     {
-
         //Get new monnify virtual account
         $responseBody = $this->createMonnifyAccount($user)['responseBody'];
 
@@ -67,6 +66,7 @@ class WalletService
                 throw new \Exception($th->getMessage());
             }
         }
+        
         $wallet->save();
     }
 
@@ -96,6 +96,7 @@ class WalletService
 
             //Delete Wallet from database
             Wallet::destroy($wallet->id);
+
         } catch (\Throwable $th) {
             return $th->getMessage();
         }

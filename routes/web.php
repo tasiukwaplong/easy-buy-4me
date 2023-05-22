@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\EmailVerificationController;
+use App\Http\Controllers\WhatsAppController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -19,3 +20,4 @@ Route::get('/', function () {
 });
 
 Route::get("email/verify", [EmailVerificationController::class, 'verify'])->name('user.verify');
+Route::get('/test', [WhatsAppController::class, 'test'])->name('test');
