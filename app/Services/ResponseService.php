@@ -12,6 +12,7 @@ use App\Models\Vendor;
 use App\Models\whatsapp\messages\SendMessage;
 use App\Models\whatsapp\ResponseMessages;
 use App\Models\whatsapp\Utils;
+use Dflydev\DotAccessData\Util;
 use Illuminate\Support\Facades\Http;
 use Nette\Utils\Random;
 
@@ -84,7 +85,7 @@ class ResponseService
                             $dispatcherPhone = $parts[1];
                             $fee = $parts[2];
 
-                            $order = $orderService->processOrder($orderId, $dispatcherPhone, $fee, $customerPhoneNumber);
+                            $order = $orderService->processOrder($orderId, $dispatcherPhone, $fee);
 
                             $this->responseData = ResponseMessages::adminOrderProcessedSuccess($customerPhoneNumber, $order);
                         }
@@ -192,7 +193,7 @@ class ResponseService
 
                             $parts = explode(":", str_replace("Order from ", "", $messge));
 
-                            $vendor = Vendor::where('name', $parts[0])->first();
+                            $vendor = Vendor::find($parts[0]);
                             $easylunchRequest = $parts[1] ?? false;
                             
                             $this->responseData = ResponseMessages::vendorCatalog($customerPhoneNumber, $vendor, $easylunchRequest);
@@ -271,7 +272,7 @@ class ResponseService
 
                                 if ($method === "WALLET") {
                                     //Notify user that their order has been placed
-                                    $this->responseData = ResponseMessages::userOrderPlaced($customerPhoneNumber, $errand);
+                                    $this->responseData = ResponseMessages::userOrderPlaced($customerPhoneNumber, $orderId);
                                 }
 
                                 //send notification to admin
@@ -348,8 +349,8 @@ class ResponseService
 
                         if (str_starts_with($messge, "Order from ")) {
 
-                            $vendorName = str_replace("Order from ", "", $messge);
-                            $vendor = Vendor::where('name', $vendorName)->first();
+                            $vendorId = str_replace("Order from ", "", $messge);
+                            $vendor = Vendor::find($vendorId);
 
                             if ($vendor) {
                                 $this->responseData = ResponseMessages::vendorCatalog($customerPhoneNumber, $vendor, false);
@@ -364,7 +365,7 @@ class ResponseService
                             $user = $userService->getUserByPhoneNumber($customerPhoneNumber);
                             $easyluchSub = EasyLunchSubscribers::find($easyLunchSubId);
 
-                            $easyluchSubOrder = $orderService->findUserCurrentOrder($user, "Easy lunch $easyluchSub->package_type package - N$easyluchSub->amount", $easyluchSub->amount);
+                            $easyluchSubOrder = $orderService->findUserCurrentOrder($user, "Easy lunch package $easyluchSub->package_type - N$easyluchSub->amount", $easyluchSub->amount);
 
                             $this->responseData = ResponseMessages::currentOrder($customerPhoneNumber, $easyluchSubOrder);
 
@@ -612,7 +613,7 @@ class ResponseService
             ->withHeaders(['Content-type' => 'application/json'])
             ->post("https://graph.facebook.com/$whatsApiVersion/$whatsAppId/messages", $this->responseData);
 
-        if($response->successful()) {
+        if(!$response->successful()) {
             $this->responseData = $response->json();
         }
     }

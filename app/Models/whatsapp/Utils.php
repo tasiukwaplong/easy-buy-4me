@@ -82,5 +82,14 @@ class Utils
     public const ORDER_STATUS_CANCELLED = -1;
     public const ORDER_STATUS_DELIVERED = 0;
     public const ORDER_STATUS_INITIATED = 2;
+    public const ORDER_STATUS_ENROUTE = 3;
+
+    //Order types
+    public const ORDER_TYPE_EASY_LUNCH = 'ORDER-EASY-LUNCH';
+    public const ORDER_TYPE_FOOD = 'ORDER-FOOD';
+
+    //Easylunch types
+    public const EASY_LUNCH_TYPE_WEEKLY = "weekly";
+    public const EASY_LUNCH_TYPE_MONTHLY = "monthly";
 
 }

@@ -32,7 +32,7 @@ class ResponseMessages
                 "type" => Utils::REPLY,
                 "reply" => [
                     "id" => Utils::BUTTONS_GO_TO_DASHBOARD,
-                    "title" => "DASHBOARD"
+                    "title" => "MENU"
                 ]
             ]
         )];
@@ -75,6 +75,9 @@ class ResponseMessages
 
     public static function easyLunchHome(User $user, $easyLunches, $activeSub)
     {
+        $easyLunchSub = EasyLunchSubscribers::where('user_id', $user->id)->first();
+        $now = date("Y-m-d");
+
         if(!$activeSub) {
             $bodyContent = $easyLunches->reduce(function ($initial, $easyLunch) {
                 return $initial . "The *$easyLunch->name package* which costs N$easyLunch->cost_per_week per week and N$easyLunch->cost_per_month for a month";
@@ -119,6 +122,13 @@ class ResponseMessages
     
             return $interactiveSendMessage;
         }
+        elseif($easyLunchSub and $now == $easyLunchSub->last_used) {
+
+            $order = Order::where('order_id', $easyLunchSub->last_order)->first();
+
+            $body = "Sorry, \nYou have used your easy lunch subscription for today on an order.\nThe order details are as follows:\n\n$order->description\n\nThank you";
+            return self::textMessage($body, $user->phone, false);
+        }
         else return self::errandOrderFood($user->phone, true);
     }
 
@@ -133,7 +143,7 @@ class ResponseMessages
                 "type" => Utils::REPLY,
                 "reply" => [
                     "id" => Utils::BUTTONS_GO_TO_DASHBOARD,
-                    "title" => "DASHBOARD"
+                    "title" => "MENU"
                 ]
             ]
         )];
@@ -171,7 +181,7 @@ class ResponseMessages
                 "type" => Utils::REPLY,
                 "reply" => [
                     "id" => Utils::BUTTONS_GO_TO_DASHBOARD,
-                    "title" => "DASHBOARD"
+                    "title" => "MENU"
                 ]
             ]
         )];
@@ -199,18 +209,12 @@ class ResponseMessages
         $header = new Header(Utils::TEXT, "My Wallets");
 
         $action = ['buttons' => array(
-            [
-                "type" => Utils::REPLY,
-                "reply" => [
-                    "id" => Utils::BUTTONS_USER_WALLET_HISTORY,
-                    "title" => "HISTORY"
-                ]
-            ],
+           
             [
                 "type" => Utils::REPLY,
                 "reply" => [
                     "id" => Utils::BUTTONS_GO_TO_DASHBOARD,
-                    "title" => "DASHBOARD"
+                    "title" => "MENU"
                 ]
             ]
         )];
@@ -232,7 +236,7 @@ class ResponseMessages
                 "type" => Utils::REPLY,
                 "reply" => [
                     "id" => Utils::BUTTONS_GO_TO_DASHBOARD,
-                    "title" => "DASHBOARD"
+                    "title" => "MENU"
                 ]
             ]
         )];
@@ -255,7 +259,7 @@ class ResponseMessages
                 "type" => Utils::REPLY,
                 "reply" => [
                     "id" => Utils::BUTTONS_GO_TO_DASHBOARD,
-                    "title" => "DASHBOARD"
+                    "title" => "MENU"
                 ]
             ]
         )]
@@ -274,7 +278,7 @@ class ResponseMessages
                     "type" => Utils::REPLY,
                     "reply" => [
                         "id" => Utils::BUTTONS_GO_TO_DASHBOARD,
-                        "title" => "DASHBOARD"
+                        "title" => "MENU"
                     ]
                 ]
             )];
@@ -296,7 +300,7 @@ class ResponseMessages
             "type" => Utils::REPLY,
             "reply" => [
                 "id" => Utils::BUTTONS_GO_TO_DASHBOARD,
-                "title" => "DASHBOARD"
+                "title" => "MENU"
             ]
         ])];
 
@@ -316,8 +320,21 @@ class ResponseMessages
         return self::textMessage($body, $customerPhoneNumber, false);
     }
 
-    public static function userOrderPlaced(string $customerPhoneNumber)
+    public static function userOrderPlaced(string $customerPhoneNumber, $orderId = 0)
     {
+
+        if($orderId > 0) {
+
+            $order = Order::find($orderId);
+            $errand = Errand::where('order_id', $orderId)->first();
+
+            if($order->status == Utils::ORDER_STATUS_PROCESSING and $errand->status == Utils::ORDER_STATUS_PROCESSING) {
+
+                $body = "Order with ID: *". $order->order_id ."* already in process. Kindly be patient, I will soon update you on the status";
+                return self::textMessage($body, $customerPhoneNumber, false);
+            }
+           
+        }
 
         $body = "Hey! Thanks for believing in me. I am on my way to run your errand. I will update you as soon as possible. Meanwhile, tap *DASHBOARD* to checkout other stuff I can do for you";
 
@@ -327,7 +344,7 @@ class ResponseMessages
             "type" => Utils::REPLY,
             "reply" => [
                 "id" => Utils::BUTTONS_GO_TO_DASHBOARD,
-                "title" => "DASHBOARD"
+                "title" => "MENU"
             ]
         ])];
 
@@ -427,19 +444,18 @@ class ResponseMessages
 
         $order = Order::where("id", $errand->order_id)->first();
 
-        if ($order->status === Utils::ORDER_STATUS_INITIATED) {
+        if ($order->status === Utils::ORDER_STATUS_PROCESSING and $errand->status == Utils::ORDER_STATUS_INITIATED) {
+            
             $orderSummary = "NEW ORDER PLACED!!\n\nOrder ID: *" . strtoupper($order->order_id) . "*\n\n";
 
             $orderSummary .= OrderService::orderSummary($order);
 
-            $orderSummary .= "Customer phone: $errand->destination_phone\nPayment Method: $method\n\nKindly reply with a dispatcher phone number in the format \nprocess-order-OREDER_ID:DISPATCHER_PHONE:FEE";
+            $orderSummary .= "Customer phone: $errand->destination_phone\nPayment Method: $method\n\n";
+            $orderSummary .= $method === "EASYLUNCH" ? "" : "Kindly reply with a dispatcher phone number in the format \nprocess-order-OREDER_ID:DISPATCHER_PHONE:FEE";
 
             $admin = User::where('is_admin', true)->first();
             return self::textMessage($orderSummary, $admin->phone, false);
-        } else {
-            $body = "Order with ID: *" . strtoupper($order->order_id) . "* already in process. Kindly be patient, I will soon update you on the status";
-            return self::textMessage($body, $customerPhoneNumber, false);
-        }
+        } 
     }
 
     public static function chooseWallet($customerPhoneNumber, $orderId)
@@ -497,7 +513,7 @@ class ResponseMessages
 
         $orderSummary = OrderService::orderSummary($order);
 
-        $orderSummary .= "Are you sure you want to continue with this order?";
+        $orderSummary .= $easylunchRequest ? "Are you sure you want to use your easy lunch package for today?":"Are you sure you want to continue with this order?";
 
         $header = ["type" => "text", "text" => "ORDER SUMMARY"];
 
@@ -538,7 +554,7 @@ class ResponseMessages
             [
                 "type" => Utils::REPLY,
                 "reply" => [
-                    "id" => "[Order from $vendor->name]",
+                    "id" => "[Order from $vendor->id]",
                     "title" => "CATALOG"
                 ]
             ],
@@ -684,7 +700,7 @@ class ResponseMessages
             "type" => Utils::REPLY,
             "reply" => [
                 "id" => Utils::BUTTONS_GO_TO_DASHBOARD,
-                "title" => "DASHBOARD"
+                "title" => "MENU"
             ]
         ])];
 
@@ -749,7 +765,7 @@ class ResponseMessages
             "type" => Utils::REPLY,
             "reply" => [
                 "id" => Utils::BUTTONS_GO_TO_DASHBOARD,
-                "title" => "DASHBOARD"
+                "title" => "MENU"
             ]
         ])];
 
@@ -859,7 +875,8 @@ class ResponseMessages
             $selectionRows = [];
 
             foreach ($optionsArray as $id => $description) {
-                $row = new Row($id, str_replace("Order From ", "", ucwords(str_replace("]", "", str_replace("[", "", str_replace("-", " ", $id))))), $description);
+                $vendor = Vendor::find(str_replace("Order From ", "", ucwords(str_replace("]", "", str_replace("[", "", str_replace("-", " ", $id))))));
+                $row = new Row($id, $vendor->name, $description);
                 array_push($selectionRows, $row);
             }
 
@@ -985,7 +1002,7 @@ class ResponseMessages
             return $initial + $wallet->balance;
         }, 0);
 
-        $bodyContent = "WALLET BALANCE: ₦$totalWalletBalance\n\nHello $user->first_name, I can't express how happy I am to assist you at this moment.\n\nI am always here to help you run an errand, tap *SEND ME* and tell me what to do for you now.";
+        $bodyContent = "WALLET BALANCE: ₦$totalWalletBalance\n\nHello $user->first_name, I can't express how happy I am to assist you at this moment.\n\nI am always here to help you run an errand, tap *MENU* and tell me what to do for you now.";
 
         //Build all rows 
         $selectionRows = [];
@@ -999,7 +1016,7 @@ class ResponseMessages
         $section = new Section("Errands I can run", $selectionRows);
 
         //Build Action
-        $action = new Action("SEND ME", array($section));
+        $action = new Action("MENU", array($section));
 
         //Build a footer
         $footer = ['text' => "@easybuy4me"];
