@@ -2,6 +2,7 @@
 
 namespace App\Models\whatsapp;
 
+use App\Models\DataPlan;
 use App\Models\EasyLunchSubscribers;
 use App\Models\Errand;
 use App\Models\Order;
@@ -23,7 +24,327 @@ use App\Services\UserService;
 class ResponseMessages
 {
 
-    public static function easyLunchPayLater($customerPhoneNumber) {
+    public static function walletLowNotification(User $admin, array $accounts, $currenntBalance, $checkDate, $walletType)
+    {
+        $body = "Hello Boss, Your $walletType balance is low.\nCurrent Bal.: *$currenntBalance*\nDate: *$checkDate*\n\nFund your wallet via any of the accounts below\n\n";
+
+        foreach ($accounts as $account) {
+            $body .= "$account->account\n$account->accountName\n$account->bank\n\n";
+        }
+        return self::textMessage($body, "$admin->phone", false);
+    }
+
+    public static function sendDataPurchaseResponse($customerPhoneNumber, DataPlan $dataPlan, $status)
+    {
+        $body = "";
+
+        if ($status === Utils::TRANSACTION_STATUS_SUCCESS) {
+            $body .= "Purchase of data plan of $dataPlan->description successful";
+
+        } elseif ($status === Utils::TRANSACTION_STATUS_INSUFFICIENT_BALANCE) {
+            $body .= "Purchase of data plan of $dataPlan->description was not successful\nReason: *Insufficient fund*";
+        
+        } else {
+            $body .= "Purchase of data plan of $dataPlan->description was not successful\nReason: *Unknown Error! Please try again*";
+        }
+
+        return self::textMessage($body, $customerPhoneNumber, false);
+    }
+
+    public static function wrongDataPlanEntry($customerPhoneNumber, $entry)
+    {
+
+        $body = "Oops! Looks like you've mistyped a data plan purchase command.\nThe right command is *PURCHASE NETWORK PLAN TYPE NUMBER* (e.g *PURCHASE MTN 1GB SME 09033456789* to purchase MTN 1GB SME plan for 09033456789)\nYou typed *$entry*. Please try again with the right command or tap any of the buttons below to start again";
+
+        $header = new Header(Utils::TEXT, "Error!");
+
+        $action = ['buttons' => array(
+            [
+                "type" => Utils::REPLY,
+                "reply" => [
+                    "id" => Utils::BUTTONS_GO_TO_DASHBOARD,
+                    "title" => "MENU"
+                ]
+            ],
+            [
+                "type" => Utils::REPLY,
+                "reply" => [
+                    "id" => Utils::BUTTONS_DATA_PLAN_NETWORKS,
+                    "title" => "OTHER NETWORKS"
+                ]
+            ],
+        )];
+
+        $interactive = new Interactive(Utils::BUTTON, $header, ['text' => $body], ['text' => "@easyBuy4me"], $action);
+
+        $interactiveSendMessage = new InteractiveSendMessage($customerPhoneNumber, Utils::INTERACTIVE, $interactive);
+
+        return $interactiveSendMessage;
+    }
+
+    public static function confirmDataPurchase($customerPhoneNumber, $dataPlan, $destinationPhone)
+    {
+
+        $body = "Are you sure you want to send $dataPlan->description to $destinationPhone?";
+
+        $header = new Header(Utils::TEXT, "Purchase Data Plan Confimation");
+
+        $action = ['buttons' => array(
+            [
+                "type" => Utils::REPLY,
+                "reply" => [
+                    "id" => "[data-confirm:$dataPlan->id:$destinationPhone]",
+                    "title" => "YES, CONTINUE"
+                ]
+            ],
+            [
+                "type" => Utils::REPLY,
+                "reply" => [
+                    "id" => Utils::BUTTONS_DATA_PLAN_CANCEL,
+                    "title" => "CANCEL"
+                ]
+            ],
+        )];
+
+        $interactive = new Interactive(Utils::BUTTON, $header, ['text' => $body], ['text' => "@easyBuy4me"], $action);
+
+        $interactiveSendMessage = new InteractiveSendMessage($customerPhoneNumber, Utils::INTERACTIVE, $interactive);
+
+        return $interactiveSendMessage;
+    }
+
+    public static function showNetworkDataPlans($customerPhoneNumber, $dataPlans)
+    {
+        $body = "To purchase any data plan, type *PURCHASE NETWORK PLAN TYPE NUMBER* (e.g *PURCHASE MTN 1GB SME 09033456789* to purchase MTN 1GB SME plan for 09033456789). Skip the *PHONE* input if you want to purchase for this whatsapp number\n\n*List of available Data Plans*\n";
+
+        foreach ($dataPlans as $dataPlan) {
+            $body .= "$dataPlan->description\n";
+        }
+
+        $header = new Header(Utils::TEXT, "Purchase Data Plan");
+
+        $action = ['buttons' => array(
+            [
+                "type" => Utils::REPLY,
+                "reply" => [
+                    "id" => Utils::BUTTONS_GO_TO_DASHBOARD,
+                    "title" => "MENU"
+                ]
+            ],
+            [
+                "type" => Utils::REPLY,
+                "reply" => [
+                    "id" => Utils::BUTTONS_DATA_PLAN_NETWORKS,
+                    "title" => "OTHER NETWORKS"
+                ]
+            ],
+        )];
+
+        $interactive = new Interactive(Utils::BUTTON, $header, ['text' => $body], ['text' => "@easyBuy4me"], $action);
+
+        $interactiveSendMessage = new InteractiveSendMessage($customerPhoneNumber, Utils::INTERACTIVE, $interactive);
+
+        return $interactiveSendMessage;
+    }
+
+    public static function showDataNetworks($customerPhoneNumber, $availableNetworks)
+    {
+
+
+        $bodyContent = "Choose your network provider from the *MENU* below";
+
+        //Build all rows 
+        $selectionRows = [];
+
+        foreach ($availableNetworks as $network) {
+            $row = new Row("[select-network:$network->network_name]", $network->network_name, "Buy $network->network_name data plan");
+            array_push($selectionRows, $row);
+        }
+
+        //Build section
+        $section = new Section("Select Network", $selectionRows);
+
+        //Build Action
+        $action = new Action("MENU", array($section));
+
+        //Build a footer
+        $footer = ['text' => "@easybuy4me"];
+
+        $body = ['text' => $bodyContent];
+
+        $header = new Header(Utils::TEXT, "SELECT NETWORK");
+
+        $interactive = new Interactive(Utils::LIST, $header, $body, $footer, $action);
+
+        $interactiveSendMessage = new InteractiveSendMessage($customerPhoneNumber, Utils::INTERACTIVE, $interactive);
+
+        return $interactiveSendMessage;
+    }
+
+    public static function showUserTransactionHistory($customerPhoneNumber, $userTransactionsData)
+    {
+
+        $body = $userTransactionsData['transactions'];
+        $nextPage = $userTransactionsData['nextPage'];
+        $lastPage = $userTransactionsData['lastPage'];
+
+        $header = new Header(Utils::TEXT, "Transaction History");
+
+        $action = ($lastPage) ? ['buttons' => array(
+            [
+                "type" => Utils::REPLY,
+                "reply" => [
+                    "id" => Utils::BUTTONS_GO_TO_DASHBOARD,
+                    "title" => "MENU"
+                ]
+            ]
+        )]
+
+            :
+
+            ['buttons' => array(
+                [
+                    "type" => Utils::REPLY,
+                    "reply" => [
+                        "id" => Utils::BUTTONS_GO_TO_DASHBOARD,
+                        "title" => "MENU"
+                    ]
+                ],
+                [
+                    "type" => Utils::REPLY,
+                    "reply" => [
+                        "id" => "[buttons-transaction-history:$nextPage]",
+                        "title" => "NEXT PAGE"
+                    ]
+                ]
+            )];
+
+        $interactive = new Interactive(Utils::BUTTON, $header, ['text' => $body], ['text' => "@easyBuy4me"], $action);
+
+        $interactiveSendMessage = new InteractiveSendMessage($customerPhoneNumber, Utils::INTERACTIVE, $interactive);
+
+        return $interactiveSendMessage;
+    }
+
+    public static function dataPurchaseStatus($customerPhoneNumber, $transactionStatusMessage)
+    {
+        $header = new Header(Utils::TEXT, "Airtime Purchase");
+
+        $action = ['buttons' => array(
+            [
+                "type" => Utils::REPLY,
+                "reply" => [
+                    "id" => Utils::BUTTONS_GO_TO_DASHBOARD,
+                    "title" => "MENU"
+                ]
+            ]
+        )];
+
+        $interactive = new Interactive(Utils::BUTTON, $header, ['text' => $transactionStatusMessage], ['text' => "@easyBuy4me"], $action);
+
+        $interactiveSendMessage = new InteractiveSendMessage($customerPhoneNumber, Utils::INTERACTIVE, $interactive);
+
+        return $interactiveSendMessage;
+    }
+
+    public static function showAirtime($customerPhoneNumber)
+    {
+
+        $body = "Kindly enter airtime recharge destination phone number and the amount in the following format *RECHARGE* *PHONE NUMBER* *AMOUNT*\n E.g RECHARGE 09012345678 100 if you were to recharge 09012345678 with N100 airtime";
+        $header = new Header(Utils::TEXT, "Airtime");
+
+        $action = ['buttons' => array(
+            [
+                "type" => Utils::REPLY,
+                "reply" => [
+                    "id" => Utils::BUTTONS_GO_TO_DASHBOARD,
+                    "title" => "MENU"
+                ]
+            ]
+        )];
+
+        $interactive = new Interactive(Utils::BUTTON, $header, ['text' => $body], ['text' => "@easyBuy4me"], $action);
+
+        $interactiveSendMessage = new InteractiveSendMessage($customerPhoneNumber, Utils::INTERACTIVE, $interactive);
+
+        return $interactiveSendMessage;
+    }
+
+    public static function showFundMyWallet(User $user)
+    {
+
+        $body = "Kindly transfer money to the following accounts:\n\n";
+
+        foreach ($user->monnifyAccounts as $account) {
+            $body .= "$account->account_number\n$account->account_name\n$account->bank\n\n";
+        }
+
+        $body .= "Fund online? click here -> https://easybuy4me.com/fund/?user=$user->phone";
+
+        $header = new Header(Utils::TEXT, "Fund My Account");
+
+        $action = ['buttons' => array(
+            [
+                "type" => Utils::REPLY,
+                "reply" => [
+                    "id" => Utils::BUTTONS_GO_TO_DASHBOARD,
+                    "title" => "MENU"
+                ]
+            ]
+        )];
+
+        $interactive = new Interactive(Utils::BUTTON, $header, ['text' => $body], ['text' => "@easyBuy4me"], $action);
+
+        $interactiveSendMessage = new InteractiveSendMessage($user->phone, Utils::INTERACTIVE, $interactive);
+
+        return $interactiveSendMessage;
+    }
+
+    public static function showOrderStatus($orders, User $user)
+    {
+
+        $thisOrders = "";
+
+        if ($orders) {
+
+            foreach ($orders as $order) {
+
+                $status = "";
+
+                if ($order->status == Utils::ORDER_STATUS_INITIATED) {
+                    $status = "Payment Pending";
+                } else if ($order->status == Utils::ORDER_STATUS_PROCESSING) {
+                    $status = "Processing";
+                }
+
+                $thisOrders .= "$order->description\nCreated at $order->created_at\nStatus: *$status*\n\n";
+            }
+        } else {
+
+            $thisOrders = "Sorry, you do not have any pending order";
+        }
+
+        $header = new Header(Utils::TEXT, "Pending Orders");
+
+        $action = ['buttons' => array(
+            [
+                "type" => Utils::REPLY,
+                "reply" => [
+                    "id" => Utils::BUTTONS_GO_TO_DASHBOARD,
+                    "title" => "MENU"
+                ]
+            ]
+        )];
+
+        $interactive = new Interactive(Utils::BUTTON, $header, ['text' => $thisOrders], ['text' => "@easyBuy4me"], $action);
+
+        $interactiveSendMessage = new InteractiveSendMessage($user->phone, Utils::INTERACTIVE, $interactive);
+
+        return $interactiveSendMessage;
+    }
+
+    public static function easyLunchPayLater($customerPhoneNumber)
+    {
         $body = "Your current order have been saved\nKindly pay as soon as possible.\n\n*Kindly note that this order will no longer exist after 15 munites from now.";
         $header = new Header(Utils::TEXT, "Pay Later");
 
@@ -78,58 +399,56 @@ class ResponseMessages
         $easyLunchSub = EasyLunchSubscribers::where('user_id', $user->id)->first();
         $now = date("Y-m-d");
 
-        if(!$activeSub) {
+        if (!$activeSub) {
             $bodyContent = $easyLunches->reduce(function ($initial, $easyLunch) {
                 return $initial . "The *$easyLunch->name package* which costs N$easyLunch->cost_per_week per week and N$easyLunch->cost_per_month for a month";
             }, "EasyLaunch is a subscription package designed to provide customers with a meal 🍲 choice option within the 5 working days, ensuring that they receive a daily meal of their choice.\nThere are two package options available for customers\n\n");
-    
+
             $bodyContent .= "Customers are expected to choose their preferred meal for the day from the list of meal available to them on the *EASY LUNCH* menu on the *DASHBOARD* every morning.\n\nTap the *MENU* below to subscribe";
-    
+
             $weeklyPackages = [];
             $monthlyPackages = [];
-    
+
             foreach ($easyLunches as $easyLunch) {
                 if ($easyLunch->cost_per_week > 0)
                     array_push($weeklyPackages, new Row("[subscribe-easylunch-weekly:$easyLunch->id:$easyLunch->cost_per_week]", ucwords($easyLunch->name . " (weekly)"), "Costs N$easyLunch->cost_per_week"));
                 if ($easyLunch->cost_per_month > 0)
                     array_push($monthlyPackages, new Row("[subscribe-easylunch-monthly:$easyLunch->id:$easyLunch->cost_per_month]", ucwords($easyLunch->name . " (monthly)"), "Costs N$easyLunch->cost_per_month"));
             }
-    
+
             //Build section
             $weeklySection = new Section("Weekly Packages", $weeklyPackages);
             $monthlySection = new Section("Monthly Packages", $monthlyPackages);
-    
+
             $allSections = array();
             if (count($weeklySection->rows) > 0)
                 array_push($allSections, $weeklySection);
-    
+
             if (count($monthlySection->rows) > 0)
                 array_push($allSections, $monthlySection);
-    
+
             //Build Action
             $action = new Action("EASY LUNCH", $allSections);
-    
+
             //Build a footer
             $footer = ['text' => "@easybuy4me"];
-    
+
             $body = ['text' => $bodyContent];
-    
+
             $header = new Header(Utils::TEXT, "EASY LUNCH SERVICE");
-    
+
             $interactive = new Interactive(Utils::LIST, $header, $body, $footer, $action);
-    
+
             $interactiveSendMessage = new InteractiveSendMessage($user->phone, Utils::INTERACTIVE, $interactive);
-    
+
             return $interactiveSendMessage;
-        }
-        elseif($easyLunchSub and $now == $easyLunchSub->last_used) {
+        } elseif ($easyLunchSub and $now == $easyLunchSub->last_used) {
 
             $order = Order::where('order_id', $easyLunchSub->last_order)->first();
 
             $body = "Sorry, \nYou have used your easy lunch subscription for today on an order.\nThe order details are as follows:\n\n$order->description\n\nThank you";
             return self::textMessage($body, $user->phone, false);
-        }
-        else return self::errandOrderFood($user->phone, true);
+        } else return self::errandOrderFood($user->phone, true);
     }
 
     public static function showSupport($customerPhoneNumber, User $admin)
@@ -193,23 +512,24 @@ class ResponseMessages
         return $interactiveSendMessage;
     }
 
-    public static function userWallets($customerPhoneNumber, $userWallets)
+    public static function userWallets($customerPhoneNumber, User $user)
     {
 
-        $totalWalletBalance = $userWallets->reduce(function ($initial, $wallet) {
-            return $initial + $wallet->balance;
-        }, 0);
+        // dd($user->monnifyAccounts->first()->account_name);
 
-        $walletDetails = $userWallets->reduce(function ($initial, $wallet) {
-            return $initial . "*$wallet->account_number*\n$wallet->account_name\n$wallet->bank\n$wallet->balance\n\n";
-        }, "*Your Wallets:*\n\n");
+        $balance = $user->wallet->balance;
+        $monnifyAccounts = "";
 
-        $body = $walletDetails . "*Total Balance:* $totalWalletBalance\n\nTo fund your wallet, make transfer to any of the accounts above\n\n*Fund online? click here -> https://easybuy4me.com/fund/?user=$customerPhoneNumber";
+        foreach ($user->monnifyAccounts as $account) {
+            $monnifyAccounts .= "$account->account_name\n$account->bank\n$account->account_number\n\n";
+        }
 
-        $header = new Header(Utils::TEXT, "My Wallets");
+        $body = "*Total Balance:* $balance\n\nTo fund your wallet, make transfer to any of the accounts below\n\n$monnifyAccounts\n\n*Fund online? click here -> https://easybuy4me.com/fund/?user=$customerPhoneNumber";
+
+        $header = new Header(Utils::TEXT, "My Wallet");
 
         $action = ['buttons' => array(
-           
+
             [
                 "type" => Utils::REPLY,
                 "reply" => [
@@ -280,6 +600,14 @@ class ResponseMessages
                         "id" => Utils::BUTTONS_GO_TO_DASHBOARD,
                         "title" => "MENU"
                     ]
+                ],
+
+                [
+                    "type" => Utils::REPLY,
+                    "reply" => [
+                        "id" => "[button-order-checkout:$order->id]",
+                        "title" => "CHECKOUT"
+                    ]
                 ]
             )];
 
@@ -323,17 +651,16 @@ class ResponseMessages
     public static function userOrderPlaced(string $customerPhoneNumber, $orderId = 0)
     {
 
-        if($orderId > 0) {
+        if ($orderId > 0) {
 
             $order = Order::find($orderId);
             $errand = Errand::where('order_id', $orderId)->first();
 
-            if($order->status == Utils::ORDER_STATUS_PROCESSING and $errand->status == Utils::ORDER_STATUS_PROCESSING) {
+            if ($order->status == Utils::ORDER_STATUS_PROCESSING and $errand->status == Utils::ORDER_STATUS_PROCESSING) {
 
-                $body = "Order with ID: *". $order->order_id ."* already in process. Kindly be patient, I will soon update you on the status";
+                $body = "Order with ID: *" . $order->order_id . "* already in process. Kindly be patient, I will soon update you on the status";
                 return self::textMessage($body, $customerPhoneNumber, false);
             }
-           
         }
 
         $body = "Hey! Thanks for believing in me. I am on my way to run your errand. I will update you as soon as possible. Meanwhile, tap *DASHBOARD* to checkout other stuff I can do for you";
@@ -415,12 +742,9 @@ class ResponseMessages
 
         $userService = new UserService();
         $user = $userService->getUserByPhoneNumber($customerPhoneNumber);
+        $walletBalance = $user->wallet->balance;
 
-        $totalWalletBalance = $user->wallets->reduce(function ($initial, $wallet) {
-            return $initial + $wallet->balance;
-        }, 0);
-
-        $body = "Ooops!\nAm sorry I was not able to complete your request, this is because your wallet balance is low. \n\nTotal Amount: $order->total_amount\nWallet balance: $totalWalletBalance\n\nTap *ADD MONEY* to fund your wallet";
+        $body = "Ooops!\nAm sorry I was not able to complete your request, this is because your wallet balance is low. \n\nTotal Amount: $order->total_amount\nWallet balance: $walletBalance\n\nTap *ADD MONEY* to fund your wallet";
         $header = ["type" => "text", "text" => "INSUFFICIENT BALANCE"];
 
         $action = ['buttons' => array(
@@ -445,7 +769,7 @@ class ResponseMessages
         $order = Order::where("id", $errand->order_id)->first();
 
         if ($order->status === Utils::ORDER_STATUS_PROCESSING and $errand->status == Utils::ORDER_STATUS_INITIATED) {
-            
+
             $orderSummary = "NEW ORDER PLACED!!\n\nOrder ID: *" . strtoupper($order->order_id) . "*\n\n";
 
             $orderSummary .= OrderService::orderSummary($order);
@@ -455,7 +779,7 @@ class ResponseMessages
 
             $admin = User::where('is_admin', true)->first();
             return self::textMessage($orderSummary, $admin->phone, false);
-        } 
+        }
     }
 
     public static function chooseWallet($customerPhoneNumber, $orderId)
@@ -469,21 +793,17 @@ class ResponseMessages
 
             $header = ['type' => Utils::TEXT, 'text' => "SELECT PAYMENT SOURCE"];
 
-            $userWallets = $user->wallets;
             $selectionRows = [];
 
-            foreach ($userWallets as $wallet) {
+            $wallet = $user->wallet;
 
-                $id = "[select-wallet-$wallet->id:$orderId]";
-                $name = "$wallet->bank - $wallet->account_number";
-                $description = "Account Balance: $wallet->balance";
+            $id = "[select-wallet-$wallet->id:$orderId]";
+            $description = "Account Balance: $wallet->balance";
 
-                $row = new Row($id, $name, $description);
+            $row = new Row($id, "My Wallet", $description);
 
-                array_push($selectionRows, $row);
-            }
+            array_push($selectionRows, $row);
 
-            array_push($selectionRows, new Row("[select-wallet-all:$orderId]", "All Wallets", "Check all my wallet for funds"));
             array_push($selectionRows, new Row("[select-wallet-online:$orderId]", "Pay Online", "Pay with your debit card"));
             array_push($selectionRows, new Row("[select-wallet-transfer:$orderId]", "Transfer", "Transfer money to my account"));
             array_push($selectionRows, new Row("[select-wallet-delivery:$orderId]", "Pay on delivery", "Pay me when I am done running your errand"));
@@ -492,13 +812,13 @@ class ResponseMessages
             $section = new Section("Total: $order->total_amount", $selectionRows);
 
             //Build Action
-            $button = "SELECT WALLET";
+            $button = "PAYMENT SOURCE";
             $action = new Action($button, array($section));
 
             //Build a footer
             $footer = ['text' => "@easybuy4me"];
 
-            $body = ['text' => "Select any of your wallet listed below to complete your transaction\n\nTap *$button* to view all"];
+            $body = ['text' => "Select any of the source of payment listed below to complete your transaction\n\nTap *$button* to view all"];
 
             $interactive = new Interactive(Utils::LIST, $header, $body, $footer, $action);
 
@@ -513,7 +833,7 @@ class ResponseMessages
 
         $orderSummary = OrderService::orderSummary($order);
 
-        $orderSummary .= $easylunchRequest ? "Are you sure you want to use your easy lunch package for today?":"Are you sure you want to continue with this order?";
+        $orderSummary .= $easylunchRequest ? "Are you sure you want to use your easy lunch package for today?" : "Are you sure you want to continue with this order?";
 
         $header = ["type" => "text", "text" => "ORDER SUMMARY"];
 
@@ -611,32 +931,32 @@ class ResponseMessages
                     "title" => "PAY NOW"
                 ]
             ]
-        )] : 
-        ['buttons' => array(
-            [
-                "type" => Utils::REPLY,
-                "reply" => [
-                    "id" => Utils::BUTTONS_ORDER_ADD_ITEM,
-                    "title" => "ADD MORE"
-                ]
-            ],
+        )] :
+            ['buttons' => array(
+                [
+                    "type" => Utils::REPLY,
+                    "reply" => [
+                        "id" => Utils::BUTTONS_ORDER_ADD_ITEM,
+                        "title" => "ADD MORE"
+                    ]
+                ],
 
-            [
-                "type" => Utils::REPLY,
-                "reply" => [
-                    "id" => Utils::BUTTONS_ORDER_ADD_MORE_ITEM,
-                    "title" => "OTHERS"
-                ]
-            ],
+                [
+                    "type" => Utils::REPLY,
+                    "reply" => [
+                        "id" => Utils::BUTTONS_ORDER_ADD_MORE_ITEM,
+                        "title" => "OTHERS"
+                    ]
+                ],
 
-            [
-                "type" => Utils::REPLY,
-                "reply" => [
-                    "id" => "[button-order-checkout:$order->id]",
-                    "title" => "PAY NOW"
+                [
+                    "type" => Utils::REPLY,
+                    "reply" => [
+                        "id" => "[button-order-checkout:$order->id]",
+                        "title" => "PAY NOW"
+                    ]
                 ]
-            ]
-        )];
+            )];
 
         $interactive = new Interactive(Utils::BUTTON, $header, ['text' => $body], ['text' => "@easyBuy4me"], $action);
 
@@ -996,11 +1316,7 @@ class ResponseMessages
      */
     public static function dashboardMessage(User $user): InteractiveSendMessage
     {
-        $userWallets = $user->wallets;
-
-        $totalWalletBalance = $userWallets->reduce(function ($initial, $wallet) {
-            return $initial + $wallet->balance;
-        }, 0);
+        $totalWalletBalance = $user->wallet->balance;
 
         $bodyContent = "WALLET BALANCE: ₦$totalWalletBalance\n\nHello $user->first_name, I can't express how happy I am to assist you at this moment.\n\nI am always here to help you run an errand, tap *MENU* and tell me what to do for you now.";
 

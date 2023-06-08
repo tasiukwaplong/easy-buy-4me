@@ -11,16 +11,16 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('wallets', function (Blueprint $table) {
-
+        Schema::create('monnify_accounts', function (Blueprint $table) {
             $table->id();
 
-            $table->string('latest_transaction')->nullable();
-
-            $table->unsignedDecimal('balance', 10, 2, true)->default(0.0);
+            $table->string('bank');
+            $table->string('account_name');
+            $table->string('account_number');
+            $table->string('account_reference');
+            $table->string('bank_code');
             $table->unsignedBigInteger('user_id');
 
-            $table->foreign('latest_transaction')->references('transaction_reference')->on('transactions')->cascadeOnDelete()->cascadeOnUpdate();
             $table->foreign('user_id')->references('id')->on('users')->cascadeOnDelete()->cascadeOnUpdate();
 
             $table->timestamps();
@@ -32,6 +32,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('wallets');
+        Schema::dropIfExists('monnify_accounts');
     }
 };

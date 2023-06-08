@@ -18,8 +18,8 @@ class WhatsAppController extends Controller
      */
     public function webhook(Request $request)
     {
-        if($request->method() == "GET") {
-           return $request->get('hub_challenge');
+        if ($request->method() == "GET") {
+            return $request->get('hub_challenge');
         }
 
         //Get business account ID from this user
@@ -39,4 +39,9 @@ class WhatsAppController extends Controller
         }
     }
 
+    public function test()
+    {
+
+       
+    }
 }

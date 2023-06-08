@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\EasyAccessController;
+use App\Http\Controllers\FlutterWaveController;
 use App\Http\Controllers\MonnifyController;
 use App\Http\Controllers\WhatsAppController;
 use Illuminate\Support\Facades\Route;
@@ -16,7 +18,10 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::post('/v1/monnify/webhook', [MonnifyController::class, 'webhook']);
-Route::post('/v1/whatsapp/webhook', [WhatsAppController::class, 'webhook']);
-Route::get('/v1/whatsapp/webhook', [WhatsAppController::class, 'webhook']);
+
+Route::match(['GET', 'POST'], '/v1/whatsapp/webhook', [WhatsAppController::class, 'webhook']);
+Route::match(['POST', "GET"], '/v1/flutterwave/webhook', [FlutterWaveController::class, 'webhook']);
+Route::match(['POST', "GET"], '/v1/easyaccess/webhook', [EasyAccessController::class, 'webhook']);
+
 Route::get("/email/verify", [EmailVerificationController::class, 'verify'])->name('email.verify');
 

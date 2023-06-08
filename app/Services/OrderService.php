@@ -307,4 +307,17 @@ class OrderService
         })->first();
     } 
 
+    public function getUserPendingOrders($user, $status = [Utils::ORDER_STATUS_INITIATED]) {
+
+        return $user->orders->filter(function ($order) use($status) {
+
+            $expiryTime = new DateTime($order->created_at);
+            $expiryTime->modify("+2 hour");
+            $now = new DateTime(now());
+
+            return (in_array($order->status, $status)) and
+                $expiryTime > $now;
+
+        })->all();
+    } 
 }

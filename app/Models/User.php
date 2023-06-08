@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class User extends Model
 {
@@ -21,9 +22,14 @@ class User extends Model
         'referred_by',
     ];
 
-    public function wallets(): HasMany
+    public function wallet(): HasOne
     {
-        return $this->hasMany(Wallet::class);
+        return $this->hasOne(Wallet::class);
+    }
+
+    public function monnifyAccounts(): HasMany
+    {
+        return $this->hasMany(MonnifyAccount::class);
     }
 
     public function transactions(): HasMany
@@ -31,7 +37,7 @@ class User extends Model
         return $this->hasMany(Transaction::class);
     }
 
-    public function orders() : HasMany 
+    public function orders(): HasMany
     {
         return $this->hasMany(Order::class);
     }
