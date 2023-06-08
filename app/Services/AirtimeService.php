@@ -57,8 +57,6 @@ class AirtimeService
 
         } catch (\Throwable $th) {
 
-            dd($th->getMessage());
-
             $this->status = (Str::startsWith($th->getMessage(), 'Insufficient balance ')) ?
                 Utils::TRANSACTION_STATUS_INSUFFICIENT_BALANCE :
                 Utils::TRANSACTION_STATUS_UNSUCCESSFUL;
