@@ -56,8 +56,8 @@ class AuthService
             $decryptedParts = explode("%&", $decryptedHash);
 
             return
-                strtolower($user->first_name) === $decryptedParts[0] &&
-                strtolower($user->last_name) === $decryptedParts[1] &&
+                strtolower($user->first_name) === strtolower($decryptedParts[0]) &&
+                strtolower($user->last_name) === strtolower($decryptedParts[1]) &&
                 $user->temp_email === $decryptedParts[2] &&
                 env('APP_KEY') === $decryptedParts[3] &&
                 $confirmationToken->expires_in === $decryptedParts[4];

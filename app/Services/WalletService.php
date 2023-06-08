@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Exceptions\InsufficientFundException;
+use App\Models\MonnifyAccount;
 use App\Models\User;
 use App\Models\Wallet;
 use App\utils\monnify\MonnifyConfig;
@@ -15,23 +17,35 @@ class WalletService
      * Function creates new wallet for user
      *
      * @param User $user
-     * @return void
      */
     public function createWallet(User $user)
     {
         //Get new monnify virtual account
-        $responseBody = $this->createMonnifyAccount($user)['responseBody'];
+        $responseBody = $this->createMonnifyAccount($user);
+
+        if (is_string($responseBody)) {
+            return $responseBody;
+        }
+
+        $responseBody = $responseBody['responseBody'];
 
         //Get the account created
-        $account = $responseBody['accounts'][0];
+        $accounts = $responseBody['accounts'];
+
+        foreach ($accounts as $account) {
+            MonnifyAccount::create([
+                'bank' => $account['bankName'],
+                'account_name' => $account['accountName'],
+                'account_number' => $account['accountNumber'],
+                'account_reference' => Random::generate(64),
+                'bank_code' => $account['bankCode'],
+                'user_id' => $user->id
+            ]);
+        }
 
         //Create a new Wallat record for this uder
         Wallet::create([
-            'bank' => $account['bankName'],
-            'account_name' => $account['accountName'],
-            'account_number' => $account['accountNumber'],
-            'account_reference' => $responseBody['accountReference'],
-            'bank_code' => $account['bankCode'],
+
             'user_id' => $user->id
         ]);
     }
@@ -49,24 +63,19 @@ class WalletService
     {
 
         if ($topUp) {
-            
+
             $currentBalance = $wallet->balance + $amount;
             $wallet->balance = doubleval($currentBalance);
-
-        } else {
-            try {
-                if ($wallet->balance < $amount) {
-                    throw new \Exception("Insufficient balance " . $wallet->balance);
-                }
-
-                $currentBalance = $wallet->balance - $amount;
-                $wallet->balance = doubleval($currentBalance);
-
-            } catch (\Throwable $th) {
-                throw new \Exception($th->getMessage());
+        } 
+        else {
+            if ($wallet->balance < $amount) {
+                throw new InsufficientFundException("Insufficient balance " . $wallet->balance);
             }
+
+            $currentBalance = $wallet->balance - $amount;
+            $wallet->balance = doubleval($currentBalance);
         }
-        
+
         $wallet->save();
     }
 
@@ -74,7 +83,6 @@ class WalletService
      * Function to delete a wallet
      *
      * @param Wallet $wallet
-     * @return void
      */
     public function deleteWallet(Wallet $wallet)
     {
@@ -96,10 +104,24 @@ class WalletService
 
             //Delete Wallet from database
             Wallet::destroy($wallet->id);
-
         } catch (\Throwable $th) {
             return $th->getMessage();
         }
+    }
+
+    public function checkBalance(User $user)
+    {
+        return $user->wallet->balance;
+    }
+
+    public function isFundsAvailable(User $user, $amount)
+    {
+        return $user->wallet->balance >= $amount;
+    }
+
+    public function getWallet(User $user)
+    {
+        return $user->wallet;
     }
 
 
@@ -107,38 +129,38 @@ class WalletService
      * Function to create new monnify virtual account
      *
      * @param User $user
-     * @return void
      */
     private function createMonnifyAccount(User $user)
     {
-
         //Get bearer authentication token
         $token = MonnifyHelper::getAccessToken();
 
         $requestUrl = env('MONNIFY_BASE_URL') . MonnifyConfig::CREATE_VIRTUAL_ACCOUNT;
 
         $newMonnifyAccountRequestBody = [
-            "accountReference" => str_replace('.', '', str_replace("@", '', $user->temp_email)) . Random::generate(6),
+            "accountReference" => str_replace('.', '', str_replace("@", '', $user->temp_email)) . Random::generate(10),
             "accountName" => "$user->first_name $user->last_name",
             "currencyCode" => MonnifyConfig::NGN_CURRENCY_CODE,
             "contractCode" => env('MONNIFY_CURRENCY_CODE'),
             "customerEmail" => $user->temp_email,
             "customerName" => "$user->first_name $user->last_name",
-            "preferredBanks" => [MonnifyConfig::WEMA_BANK],
-            "getAllAvailableBanks" => false
+            "getAllAvailableBanks" => true
         ];
 
         try {
             //Send new account request to monnify
-            $createNewMonnifyAccountResponse = Http::withToken($token)->retry(3)->post($requestUrl, $newMonnifyAccountRequestBody);
+            $createNewMonnifyAccountResponse = Http::withToken($token)
+                ->retry(3)
+                ->post($requestUrl, $newMonnifyAccountRequestBody);
 
             //Check if request is unsuccessful
             if (!$createNewMonnifyAccountResponse->successful()) {
                 throw new \Exception($createNewMonnifyAccountResponse['responseMessage']);
             }
+
             return $createNewMonnifyAccountResponse->json();
         } catch (\Throwable $th) {
-            dd($th->getMessage());
+            return "Could not Create Wallet, something went wrong";
         }
     }
 }

@@ -15,7 +15,7 @@ return new class extends Migration
             
             $table->id();
 
-            $table->string('transaction_reference');
+            $table->string('transaction_reference')->unique();
             $table->string('method');
             $table->string('description');
             $table->string('payment_reference')->nullable(true);
