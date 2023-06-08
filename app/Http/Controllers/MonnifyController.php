@@ -15,7 +15,6 @@ class MonnifyController extends Controller
      * This function handles only request meant for balance top up via bank transfer
      *
      * @param Request $request
-     * @return void
      */
     public function webhook(Request $request)
     {
