@@ -25,14 +25,28 @@ class EasyLunchService
     {
         $ordersRemaining = ($type == Utils::EASY_LUNCH_TYPE_WEEKLY) ? 5 : 20;
 
-        $easyLunchSubscriber = EasyLunchSubscribers::where('user_id', $userId)->first() ??
-            EasyLunchSubscribers::create([
+        $easyLunchSubscriber = EasyLunchSubscribers::where('user_id', $userId)->first();
+
+        if ($easyLunchSubscriber) {
+
+            $easyLunchSubscriber->update([
+
                 'user_id' => $userId,
                 'easy_lunch_id' => $easyLunchId,
                 'package_type' => $type,
                 'amount' => $amount,
                 'orders_remaining' => $ordersRemaining
             ]);
+        } else {
+            $easyLunchSubscriber = EasyLunchSubscribers::create([
+                'user_id' => $userId,
+                'easy_lunch_id' => $easyLunchId,
+                'package_type' => $type,
+                'amount' => $amount,
+                'orders_remaining' => $ordersRemaining
+            ]);
+        }
+
 
         return $easyLunchSubscriber;
     }
@@ -46,7 +60,33 @@ class EasyLunchService
      */
     public function isActive(User $user)
     {
+        //Check if this user hase easylunch subscription
         $easyLunchSubscriber = EasyLunchSubscribers::where('user_id', $user->id)->first();
-        return $easyLunchSubscriber and $easyLunchSubscriber->orders_remaining > 0 and $easyLunchSubscriber->paid;
+
+        if ($easyLunchSubscriber) {
+
+            $now = date("Y-m-d");
+            $lastUsed = date("Y-m-d", strtotime($easyLunchSubscriber->last_used));
+
+            // dd($now, $lastUsed);
+
+
+            return  $easyLunchSubscriber and
+                $easyLunchSubscriber->orders_remaining > 0 and
+                $easyLunchSubscriber->paid and
+                $now > $lastUsed;
+        }
+
+        return false;
+    }
+
+    public function isSubscribed(User $user): bool
+    {
+        //Check if this user hase easylunch subscription
+        $easyLunchSubscriber = EasyLunchSubscribers::where('user_id', $user->id)->first();
+
+        return  $easyLunchSubscriber and
+                $easyLunchSubscriber->orders_remaining > 0 and
+                $easyLunchSubscriber->paid;
     }
 }

@@ -24,6 +24,10 @@ use App\Services\UserService;
 class ResponseMessages
 {
 
+    public static function orderAlreadyProcessed($customerPhoneNumber, Order $order) {
+        return self::textMessage("Order with ID: $order->order_id already processed!", $customerPhoneNumber, false);
+    }
+
     public static function walletLowNotification(User $admin, array $accounts, $currenntBalance, $checkDate, $walletType)
     {
         $body = "Hello Boss, Your $walletType balance is low.\nCurrent Bal.: *$currenntBalance*\nDate: *$checkDate*\n\nFund your wallet via any of the accounts below\n\n";
@@ -115,7 +119,8 @@ class ResponseMessages
 
     public static function showNetworkDataPlans($customerPhoneNumber, $dataPlans)
     {
-        $body = "To purchase any data plan, type *PURCHASE NETWORK PLAN TYPE NUMBER* (e.g *PURCHASE MTN 1GB SME 09033456789* to purchase MTN 1GB SME plan for 09033456789). Skip the *PHONE* input if you want to purchase for this whatsapp number\n\n*List of available Data Plans*\n";
+        $networkName = $dataPlans[0]->network_name;
+        $body = "To purchase any data plan, type \n*PURCHASE NETWORK PLAN TYPE PHONE* \n(e.g *PURCHASE MTN 1GB SME 09033456789* to purchase MTN 1GB SME plan for 09033456789). \nSkip the *PHONE* input if you want to purchase for this whatsapp number.\n\n*List of available $networkName Data Plans*\n";
 
         foreach ($dataPlans as $dataPlan) {
             $body .= "$dataPlan->description\n";
@@ -250,8 +255,8 @@ class ResponseMessages
     public static function showAirtime($customerPhoneNumber)
     {
 
-        $body = "Kindly enter airtime recharge destination phone number and the amount in the following format *RECHARGE* *PHONE NUMBER* *AMOUNT*\n E.g RECHARGE 09012345678 100 if you were to recharge 09012345678 with N100 airtime";
-        $header = new Header(Utils::TEXT, "Airtime");
+        $body = "Kindly enter airtime recharge destination phone number and the amount in the following format\n *RECHARGE* *PHONE NUMBER* *AMOUNT*\n E.g RECHARGE 09012345678 100 if you are to recharge 09012345678 with N100 airtime.";
+        $header = new Header(Utils::TEXT, "Airtime Purchase");
 
         $action = ['buttons' => array(
             [
@@ -303,7 +308,7 @@ class ResponseMessages
     public static function showOrderStatus($orders, User $user)
     {
 
-        $thisOrders = "";
+        $thisOrders = "These are orders with either *PAID*, *PAY ON DELIVERY*, or *PAY BY TRANSFER* payment status\n\n";
 
         if ($orders) {
 
@@ -315,6 +320,9 @@ class ResponseMessages
                     $status = "Payment Pending";
                 } else if ($order->status == Utils::ORDER_STATUS_PROCESSING) {
                     $status = "Processing";
+                }
+                else if ($order->status == Utils::ORDER_STATUS_ENROUTE) {
+                     $status = "On the way!";
                 }
 
                 $thisOrders .= "$order->description\nCreated at $order->created_at\nStatus: *$status*\n\n";
@@ -345,7 +353,7 @@ class ResponseMessages
 
     public static function easyLunchPayLater($customerPhoneNumber)
     {
-        $body = "Your current order have been saved\nKindly pay as soon as possible.\n\n*Kindly note that this order will no longer exist after 15 munites from now.";
+        $body = "Your current order have been saved\nKindly pay as soon as possible.\n\n*Kindly note that this order will no longer exist after 1 hour from now.* \nReply with *Easy lunch* to continue the order any time later.";
         $header = new Header(Utils::TEXT, "Pay Later");
 
         $action = ['buttons' => array(
@@ -381,7 +389,7 @@ class ResponseMessages
             [
                 "type" => Utils::REPLY,
                 "reply" => [
-                    "id" => Utils::BUTTONS_EASY_LUNCH_SUB_PAY_LATER,
+                    "id" => "[button-easy-lunch-later:$easyLunchSubscriber->id]",
                     "title" => "PAY LATER"
                 ]
             ]
@@ -394,17 +402,21 @@ class ResponseMessages
         return $interactiveSendMessage;
     }
 
-    public static function easyLunchHome(User $user, $easyLunches, $activeSub)
+    public static function easyLunchHome(User $user, $easyLunches, $activeSub, $easyLunchOrder = false)
     {
         $easyLunchSub = EasyLunchSubscribers::where('user_id', $user->id)->first();
         $now = date("Y-m-d");
 
-        if (!$activeSub) {
+        if ($easyLunchOrder) {
+            return self::sendUserCart($user->phone, $easyLunchOrder, false);
+        } 
+
+        elseif (!$activeSub) {
             $bodyContent = $easyLunches->reduce(function ($initial, $easyLunch) {
                 return $initial . "The *$easyLunch->name package* which costs N$easyLunch->cost_per_week per week and N$easyLunch->cost_per_month for a month";
             }, "EasyLaunch is a subscription package designed to provide customers with a meal 🍲 choice option within the 5 working days, ensuring that they receive a daily meal of their choice.\nThere are two package options available for customers\n\n");
 
-            $bodyContent .= "Customers are expected to choose their preferred meal for the day from the list of meal available to them on the *EASY LUNCH* menu on the *DASHBOARD* every morning.\n\nTap the *MENU* below to subscribe";
+            $bodyContent .= "Customers are expected to choose their preferred meal for the day from the list of meal available to them on the *EASY LUNCH* menu on the *MENU* every morning.\n\nTap the *MENU* below to subscribe";
 
             $weeklyPackages = [];
             $monthlyPackages = [];
@@ -428,7 +440,7 @@ class ResponseMessages
                 array_push($allSections, $monthlySection);
 
             //Build Action
-            $action = new Action("EASY LUNCH", $allSections);
+            $action = new Action("EASY LUNCH MENU", $allSections);
 
             //Build a footer
             $footer = ['text' => "@easybuy4me"];
@@ -442,13 +454,19 @@ class ResponseMessages
             $interactiveSendMessage = new InteractiveSendMessage($user->phone, Utils::INTERACTIVE, $interactive);
 
             return $interactiveSendMessage;
+
         } elseif ($easyLunchSub and $now == $easyLunchSub->last_used) {
 
             $order = Order::where('order_id', $easyLunchSub->last_order)->first();
 
-            $body = "Sorry, \nYou have used your easy lunch subscription for today on an order.\nThe order details are as follows:\n\n$order->description\n\nThank you";
+            $body = "Sorry, \nYou have used your easy lunch subscription for today on an order.\nThe order details are as follows:\n\n$order->description\nThank you";
+            
             return self::textMessage($body, $user->phone, false);
-        } else return self::errandOrderFood($user->phone, true);
+
+        } 
+
+       
+        else return self::errandOrderFood($user->phone, true);
     }
 
     public static function showSupport($customerPhoneNumber, User $admin)
@@ -512,7 +530,7 @@ class ResponseMessages
         return $interactiveSendMessage;
     }
 
-    public static function userWallets($customerPhoneNumber, User $user)
+    public static function userWallets(User $user)
     {
 
         // dd($user->monnifyAccounts->first()->account_name);
@@ -524,7 +542,7 @@ class ResponseMessages
             $monnifyAccounts .= "$account->account_name\n$account->bank\n$account->account_number\n\n";
         }
 
-        $body = "*Total Balance:* $balance\n\nTo fund your wallet, make transfer to any of the accounts below\n\n$monnifyAccounts\n\n*Fund online? click here -> https://easybuy4me.com/fund/?user=$customerPhoneNumber";
+        $body = "*Total Balance:* $balance\n\nTo fund your wallet, make transfer to any of the accounts below\n\n$monnifyAccounts\n*Fund online? click here* -> https://easybuy4me.com/fund/?user=$user->phone";
 
         $header = new Header(Utils::TEXT, "My Wallet");
 
@@ -541,7 +559,7 @@ class ResponseMessages
 
         $interactive = new Interactive(Utils::BUTTON, $header, ['text' => $body], ['text' => "@easyBuy4me"], $action);
 
-        $interactiveSendMessage = new InteractiveSendMessage($customerPhoneNumber, Utils::INTERACTIVE, $interactive);
+        $interactiveSendMessage = new InteractiveSendMessage($user->phone, Utils::INTERACTIVE, $interactive);
 
         return $interactiveSendMessage;
     }
@@ -568,7 +586,7 @@ class ResponseMessages
         return $interactiveSendMessage;
     }
 
-    public static function sendUserCart($customerPhoneNumber, $order, $empty)
+    public static function sendUserCart($customerPhoneNumber, $order, $empty )
     {
 
         $body = ($empty and !$order) ? "Your Cart is empty" : "Your cart contains\n\n" . OrderService::orderSummary($order);
@@ -663,7 +681,7 @@ class ResponseMessages
             }
         }
 
-        $body = "Hey! Thanks for believing in me. I am on my way to run your errand. I will update you as soon as possible. Meanwhile, tap *DASHBOARD* to checkout other stuff I can do for you";
+        $body = "Hey! Thanks for believing in me. I am on my way to run your errand. I will update you as soon as possible. Meanwhile, tap *MENU* to checkout other stuff I can do for you";
 
         $header = ["type" => "image", "image" => ["link" => Utils::ERRAND_BANNAER]];
 
@@ -699,7 +717,14 @@ class ResponseMessages
             }
 
             if ($method === "TRANSFER") {
-                $body = "ORDER ID: *$orderID*\nTotal Amount: $order->total_amount\n\nKindly Transfer the above stated amount to any of the account numbers below\n\n*3676367393*\nAccess Bank\nMNFY/ Tasiu Kwap\n\n*983983786*\nMonie Point Bank\nMNFY/ Tasiu Kwap\n\n*001972626*\nWema Bank\nMNFY/ Tasiu Kwap";
+                $userAccounts = $order->user->monnifyAccounts;
+
+                $accounts = "";
+
+                foreach ($userAccounts as $account) {
+                    $accounts .= "$account->account_number\n$account->account_name\n$account->bank\n\n";
+                }
+                $body = "ORDER ID: *$orderID*\nTotal Amount: $order->total_amount\n\nKindly Transfer the above stated amount to any of the account numbers below\n\n*$accounts";
             }
 
             return self::textMessage($body, $customerPhoneNumber, true);
@@ -882,7 +907,7 @@ class ResponseMessages
                 "type" => Utils::REPLY,
                 "reply" => [
                     "id" => Utils::BUTTONS_GO_TO_DASHBOARD,
-                    "title" => "GO TO DASHBOARD"
+                    "title" => "GO TO MENU"
                 ]
             ]
         )];
@@ -919,7 +944,7 @@ class ResponseMessages
     public static function currentOrder($customerPhoneNumber, Order $order, $easylunchRequest = false)
     {
 
-        $body = $order->description . "\n\n*Total amount:* $order->total_amount \n\n*ADD MORE* to add items from current vendor or *OTHERS* to add from other vendors";
+        $body = $easylunchRequest ?  $order->description . "\n\n*Total amount:* $order->total_amount" : $order->description . "\n\n*Total amount:* $order->total_amount \n\n*ADD MORE* to add items from current vendor or *OTHERS* to add from other vendors";
 
         $header = new Header(Utils::TEXT, "Order Details");
 
@@ -1024,7 +1049,7 @@ class ResponseMessages
             ]
         ])];
 
-        $interactive = new Interactive(Utils::BUTTON, $header, ['text' => $body], ['text' => "Tap *DASHBOARD* to return"], $action);
+        $interactive = new Interactive(Utils::BUTTON, $header, ['text' => $body], ['text' => "Tap *MENU* to return"], $action);
 
         $interactiveSendMessage = new InteractiveSendMessage($customerPhoneNumber, Utils::INTERACTIVE, $interactive);
         return $interactiveSendMessage;
@@ -1074,10 +1099,12 @@ class ResponseMessages
     public static function errandItemPickUp($customerPhoneNumber)
     {
 
+        $admin = User::where("is_admin", true)->first();
+
         $errandService = new ErrandService();
         $pickUpErrandService = $errandService->getErrandService(Utils::ERRAND_ITEM_PICK_UP);
 
-        $body = $pickUpErrandService['message'];
+        $body = $pickUpErrandService['message']. " via -> https://wa.me/$admin->phone";
 
         $header = new Header(Utils::TEXT, "Item Pickup");
 
@@ -1089,7 +1116,7 @@ class ResponseMessages
             ]
         ])];
 
-        $interactive = new Interactive(Utils::BUTTON, $header, ['text' => $body], ['text' => "Tap *DASHBOARD* to return"], $action);
+        $interactive = new Interactive(Utils::BUTTON, $header, ['text' => $body], ['text' => "@easybuy4me"], $action);
 
         $interactiveSendMessage = new InteractiveSendMessage($customerPhoneNumber, Utils::INTERACTIVE, $interactive);
         return $interactiveSendMessage;
@@ -1132,7 +1159,8 @@ class ResponseMessages
 
             return $interactiveSendMessage;
         } else {
-            return self::errandHome($customerPhoneNumber, "Sorry no availble vendor for this service. Try again leter or select another\n");
+            $admin = User::where("is_admin", true)->first();
+            return self::errandHome($customerPhoneNumber, "Sorry no availble vendor for this service. Try again leter or select another vendor from *MENU* below. You can chat admin to find alternatives by clicking https://wa.me/$admin->phone");
         }
     }
 
@@ -1216,7 +1244,9 @@ class ResponseMessages
             $interactiveSendMessage = new InteractiveSendMessage($customerPhoneNumber, Utils::INTERACTIVE, $interactive);
 
             return $interactiveSendMessage;
-        } else {
+        } 
+        
+        else {
             return self::errandHome($customerPhoneNumber, "Sorry no availble vendor for this service. Try again leter or select another\n");
         }
     }
@@ -1262,9 +1292,21 @@ class ResponseMessages
         return $interactiveSendMessage;
     }
 
-    public static function errorMessage(string $customerPhoneNumber, bool $urlPreview)
+    public static function errorMessage(string $customerPhoneNumber, bool $registered, bool $urlPreview)
     {
-        $body = "Ooops!\nLooks like you entered unknown response, kindly reply with *Hi* to get started.";
+        $body = "";
+
+        if($registered) {
+            $registeredCustomerBody = "Or reply with the following\n\n";
+
+            foreach (Utils::USER_INPUT_MESSAGES as $input => $message) {
+                $registeredCustomerBody .= "*$input* : $message\n";
+            }
+
+        $body = "Ooops!\nLooks like you entered unknown response, kindly reply with *Hi* to get started. $registeredCustomerBody";
+    
+        }
+        else $body = "Ooops!\nLooks like you entered unknown response, kindly reply with *Hi* to get started. ";
         return self::textMessage($body, $customerPhoneNumber, $urlPreview);
     }
 

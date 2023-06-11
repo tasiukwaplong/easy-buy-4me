@@ -47,7 +47,7 @@ class OrderService
         return $order;
     }
 
-    public function addOrderedItem(Order $order, string $itemId, $vendorId): Order
+    public function addOrderedItem(Order $order, string $itemId, $vendorId)
     {
         $item = Item::where(['id' => $itemId, 'vendor_id' => $vendorId])->first();
 
@@ -108,72 +108,26 @@ class OrderService
         }
     }
 
-    public function clearCart(User $user) 
+    public function clearCart(User $user)
     {
-        $order = $user->orders->filter(function($order) {
-            return $order->status == Utils::ORDER_STATUS_INITIATED;})
-        ->first();
+        $order = $user->orders->filter(function ($order) {
+            return $order->status == Utils::ORDER_STATUS_INITIATED;
+        })
+            ->first();
 
-        return Order::destroy($order->id); 
+        return Order::destroy($order->id);
     }
 
     public function performCheckout($orderId, $walletId)
     {
-
-
         $order = Order::find($orderId);
         $user = $order->user;
 
         $errand = Errand::where('order_id', $orderId)->first();
 
-        if (!$errand and $order) {
+        if ((($errand and ($errand->status == Utils::ORDER_STATUS_INITIATED)) or !$errand)  and $order) {
 
-
-            if ($walletId == "all") {
-
-                $userWallets = $user->wallets;
-                $orderAmount = $order->total_amount;
-
-                $totalWalletBalance = $userWallets->reduce(function ($initial, $wallet) {
-                    return $initial + $wallet->balance;
-                }, 0);
-
-                if ($totalWalletBalance > $orderAmount) {
-
-                     //update wallet balance
-                     foreach($userWallets as $userWallet) {
-
-                        $amt = $userWallet->balance - $orderAmount;
-
-                        if($amt < 0) {
-                           $orderAmount -= $userWallet->balance;
-                           $userWallet->balance = 0.0;
-                        }
-                        else {
-                            $userWallet->balance = $amt;
-                        }
-
-                        $userWallet->save();
-                    }
-
-                    //Create a new Errand
-                    $errand = Errand::create([
-                        'destination_phone' => $user->phone,
-                        'dispatcher' => "",
-                        'status' => Utils::ORDER_STATUS_INITIATED,
-                        'order_id' => $order->id
-                    ]);
-
-                    $order->status = Utils::ORDER_STATUS_PROCESSING;
-                    $order->save();
-
-                    return $errand;
-                }
-
-                return false;
-            } 
-
-            elseif($walletId == "easylunch") {
+            if ($walletId == "easylunch") {
 
                 $easylunchsub = EasyLunchSubscribers::where('user_id', $user->id)->first();
                 $easylunchsub->orders_remaining -= 1;
@@ -192,55 +146,76 @@ class OrderService
                 $order->save();
 
                 return $errand;
-            }
+                
+            } elseif (in_array($walletId, ['delivery', 'transfer', 'online'])) {
 
-            elseif(in_array($walletId, ['delivery', 'transfer', 'online'])) {
-                 //Create a new Errand
-                 $errand = Errand::create([
-                    'destination_phone' => $user->phone,
-                    'dispatcher' => "",
-                    'status' => Utils::ORDER_STATUS_INITIATED,
-                    'order_id' => $order->id
-                ]);
+                //Create a new Errand
 
-                $order->status = Utils::ORDER_STATUS_PROCESSING;
-                $order->save();
+                if ($errand) {
 
-                return $errand;
-            }
-
-            else {
-
-
-                $wallet = Wallet::find($walletId);
-
-                if ($wallet and $wallet->balance > $order->total_amount) {
-
-                    $wallet->balance -= $order->total_amount;
-                    $wallet->save();
-
-                    $order->status = Utils::ORDER_STATUS_PROCESSING;
-                    $order->save();
-
-                      //check for easy lunch subscription
-                    if(substr($order->description, 0, 18) === "Easy lunch package") {
-
-                        $easylunchsub = EasyLunchSubscribers::where('user_id', $order->user->id)->first();
-                        $easylunchsub->paid = true;
-                        $easylunchsub->save();
-                    }
-
-                    //Create a new Errand
+                    $errand->update([
+                        'destination_phone' => $user->phone,
+                        'dispatcher' => "",
+                        'status' => Utils::ORDER_STATUS_INITIATED,
+                    ]);
+                } else {
                     $errand = Errand::create([
                         'destination_phone' => $user->phone,
                         'dispatcher' => "",
                         'status' => Utils::ORDER_STATUS_INITIATED,
                         'order_id' => $order->id
                     ]);
+                }
+
+
+                $order->status = Utils::ORDER_STATUS_PROCESSING;
+                $order->save();
+
+                return $errand;
+
+            } else {
+
+                $walletService = new WalletService();
+
+                $wallet = $walletService->getWallet($user);
+                $fundsAvailable = $walletService->isFundsAvailable($user, $order->total_amount);
+
+                if ($fundsAvailable) {
+
+                    $walletService->alterBalance($order->total_amount, $wallet, false);
+
+                    $order->status = Utils::ORDER_STATUS_PROCESSING;
+                    $order->save();
+
+                    //check for easy lunch subscription
+                    if (substr($order->description, 0, 18) === "Easy lunch package") {
+
+                        $easylunchsub = EasyLunchSubscribers::where('user_id', $order->user->id)->first();
+                        $easylunchsub->paid = true;
+                        $easylunchsub->save();
+
+                        $order->status = Utils::ORDER_STATUS_DELIVERED;
+                        $order->save();
+                    }
+
+                    if ($errand) {
+
+                        $errand->update([
+                            'destination_phone' => $user->phone,
+                            'dispatcher' => "",
+                            'status' => Utils::ORDER_STATUS_INITIATED,
+                        ]);
+                    } else {
+                        $errand = Errand::create([
+                            'destination_phone' => $user->phone,
+                            'dispatcher' => "",
+                            'status' => Utils::ORDER_STATUS_INITIATED,
+                            'order_id' => $order->id
+                        ]);
+                    }
 
                     return $errand;
                 }
-
             }
 
             return false;
@@ -249,25 +224,27 @@ class OrderService
         return $errand;
     }
 
-    public function processOrder($orderId, $dispatcher, $fee) {
-        
+    public function processOrder($orderId, $dispatcher, $fee)
+    {
+
         $order = Order::where('order_id', $orderId)->first();
 
-        if($order) {
+        if ($order) {
 
-            $order->status = Utils::ORDER_STATUS_PROCESSING;
+            $order->status = Utils::ORDER_STATUS_ENROUTE;
             $order->save();
 
             //check for errand
             $errand = Errand::where('order_id', $order->id)->first();
-            if($errand and $errand->status == Utils::ORDER_STATUS_INITIATED) {
+
+            if ($errand and $errand->status == Utils::ORDER_STATUS_INITIATED) {
                 $errand->dispatcher = $dispatcher;
-                $errand->status = Utils::ORDER_STATUS_PROCESSING;
+                $errand->status = Utils::ORDER_STATUS_ENROUTE;
                 $errand->save();
             }
 
             //check for easy lunch subscription
-            if(substr($order->description, 0, 18) === "Easy lunch package") {
+            if (substr($order->description, 0, 18) === "Easy lunch package") {
                 $easylunchsub = EasyLunchSubscribers::where('user_id', $order->user->id)->first();
                 $easylunchsub->paid = true;
                 $easylunchsub->save();
@@ -281,7 +258,8 @@ class OrderService
         return false;
     }
 
-    public static function orderSummary(Order $order) {
+    public static function orderSummary(Order $order)
+    {
 
         $orderSummary = "";
 
@@ -293,31 +271,84 @@ class OrderService
         return strlen($orderSummary) > 1 ? $orderSummary . "\nTotal Amount: *$order->total_amount*\n\n" : $order->description;
     }
 
-    public function getUserPendingOrder($user) {
+    public function getUserPendingOrder($user)
+    {
 
         return $user->orders->filter(function ($order) {
 
             $expiryTime = new DateTime($order->created_at);
-            $expiryTime->modify("+15 minute");
+            $expiryTime->modify("+1 hour");
             $now = new DateTime(now());
 
             return ($order->status == Utils::ORDER_STATUS_INITIATED) and
                 $expiryTime > $now;
-
         })->first();
-    } 
+    }
 
-    public function getUserPendingOrders($user, $status = [Utils::ORDER_STATUS_INITIATED]) {
+    public function getUserPendingOrders($user, $status = [Utils::ORDER_STATUS_INITIATED])
+    {
 
-        return $user->orders->filter(function ($order) use($status) {
+        return $user->orders->filter(function ($order) use ($status) {
 
             $expiryTime = new DateTime($order->created_at);
-            $expiryTime->modify("+2 hour");
+            $expiryTime->modify("+1 hour");
             $now = new DateTime(now());
 
             return (in_array($order->status, $status)) and
-                $expiryTime > $now;
-
+                ($expiryTime > $now or ($order->status === Utils::ORDER_STATUS_ENROUTE or $order->status === Utils::ORDER_STATUS_PROCESSING));
         })->all();
-    } 
+    }
+
+    public function findEasyLunchOrder(User $user)
+    {
+
+        //Check if this user has a subscription that is not yet paid for
+        $easylunchsub = EasyLunchSubscribers::where(["user_id" => $user->id, 'paid' => false])->first();
+
+        if ($easylunchsub) {
+
+            $order = Order::where('user_id', $user->id)
+                ->where('description', 'LIKE', "Easy lunch package%")
+                ->first();
+
+            if ($order) {
+
+                $expiryTime = new DateTime($order->created_at);
+                $expiryTime->modify("+1 hour");
+                $now = new DateTime(now());
+
+                if ($now < $expiryTime) {
+                    return $order;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    public function addEasyLunchOrder(User $user, $description, $amount): Order
+    {
+
+        $order = Order::where('user_id', $user->id)
+            ->where('description', 'LIKE', "Easy lunch package%")
+            ->first();
+
+        if ($order) {
+
+            $order->description = $description;
+            $order->total_amount = $amount;
+            $order->save();
+        } else {
+
+            $order = Order::create([
+                'order_id' => strtoupper(Random::generate(35)),
+                'description' => $description,
+                'total_amount' => $amount,
+                'status' => Utils::ORDER_STATUS_INITIATED,
+                'user_id' => $user->id
+            ]);
+        }
+
+        return $order;
+    }
 }
