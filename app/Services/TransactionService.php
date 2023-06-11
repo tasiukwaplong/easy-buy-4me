@@ -18,7 +18,7 @@ class TransactionService {
 
         $transactions = "";
 
-        $paginator = new Paginator($user->transactions, 5, $nextPage);
+        $paginator = new Paginator($user->transactions, 10, $nextPage);
 
         foreach ($paginator as $transaction) {
             

@@ -98,9 +98,32 @@ class Utils
     public const EASY_LUNCH_TYPE_MONTHLY = "monthly";
 
     //Expected User commands
-    public const USER_INPUT_ORDER_STATUS = "order status"; 
-
+    public const USER_INPUT_ORDER_STATUS = "Order status"; 
+    public const USER_INPUT_CART = "Cart"; 
+    public const USER_INPUT_MENU = "Menu"; 
+    public const USER_INPUT_WALLET = "Wallet"; 
+    public const USER_INPUT_ERRAND = "Errand"; 
+    public const USER_INPUT_AIRTIME = "Airtime"; 
+    public const USER_INPUT_DATA = "Data"; 
+    public const USER_INPUT_TRANSACTIONS = "Transactions"; 
+    public const USER_INPUT_EASY_LUNCH = "Easy lunch"; 
+    public const USER_INPUT_MORE = "More"; 
+    public const USER_INPUT_VENDORS = "Vendors"; 
     public const USER_INPUTS_GREETINGS = ['Hi', 'hi', 'Yo!', 'Yo', 'Howdy!', "What's up!", 'Hey!', 'Hey', 'Hello', 'hello', 'Greetings', 'xup', 'yaa', 'guy', 'babe', 'yaa ne'];
+
+    public const USER_INPUT_MESSAGES = [
+        self::USER_INPUT_MENU => "To view all services",
+        self::USER_INPUT_AIRTIME => "To purchase airtime",
+        self::USER_INPUT_DATA => "To purchase data bundle",
+        self::USER_INPUT_WALLET => "To manage your wallet",
+        self::USER_INPUT_ERRAND => "To view errands we can run for you",
+        self::USER_INPUT_TRANSACTIONS => "To view recent transactions",
+        self::USER_INPUT_CART => "To view shopping cart",
+        self::USER_INPUT_ORDER_STATUS => "To view orders with either *PAID*, *TRANSFER* or *PAY ON DELIVERY* status",
+        self::USER_INPUT_EASY_LUNCH => "To manage Easy Lunch subscription",
+        self::USER_INPUT_MORE => "To find out more about our product and services",
+        self::USER_INPUT_VENDORS => "View several vendors and their products",
+    ];
 
     //Transaction purchase status
     public const TRANSACTION_STATUS_SUCCESS = 0;
@@ -109,9 +132,9 @@ class Utils
     public const TRANSACTION_STATUS_PENDING = 2;
 
     public const TRANSACTION_STATUS = [
-        self::TRANSACTION_STATUS_INSUFFICIENT_BALANCE => "Unsuccessful, insufficient balance",
+        self::TRANSACTION_STATUS_INSUFFICIENT_BALANCE => "Unsuccessful",
         self::TRANSACTION_STATUS_SUCCESS => "Success",
-        self::TRANSACTION_STATUS_UNSUCCESSFUL => "Unsuccessful, try again later",
+        self::TRANSACTION_STATUS_UNSUCCESSFUL => "Unsuccessful",
         self::TRANSACTION_STATUS_PENDING => "Pending",
     ];
 
@@ -119,7 +142,7 @@ class Utils
     public const DATA_STATUS_NOT_FOUND = -1;
     public const DATA_STATUS_FOUND = 0;
 
-    //Wallets
+    //Admin Wallets
     public const ADMIN_WALLET_EASY_ACCESS = "Easy Access";
     public const ADMIN_WALLET_FLUTTERWAVE = "Flutterwave";
 
