@@ -18,6 +18,8 @@ return new class extends Migration
 
             $table->string('destination_phone');
             $table->string('dispatcher');
+            $table->string('delivery_address', 500);
+            $table->unsignedDecimal('delivery_fee');
             $table->string('status');
 
             $table->unsignedBigInteger('order_id');

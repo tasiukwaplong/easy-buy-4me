@@ -11,16 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('wallets', function (Blueprint $table) {
-
+        Schema::create('users_easylunch_subscriptions', function(Blueprint $table) {
             $table->id();
-
-            $table->unsignedDecimal('balance', 10, 2)->default(0.0);
             $table->unsignedBigInteger('user_id');
-
+            $table->unsignedBigInteger('easy_lunch_subscribers_id');
+            $table->foreign('easy_lunch_subscribers_id')->references('id')->on('easy_lunch_subscribers')->cascadeOnDelete()->cascadeOnUpdate();
             $table->foreign('user_id')->references('id')->on('users')->cascadeOnDelete()->cascadeOnUpdate();
-
-            $table->timestamps();
         });
     }
 
@@ -29,6 +25,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('wallets');
+        //
     }
 };

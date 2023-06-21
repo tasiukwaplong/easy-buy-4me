@@ -24,8 +24,10 @@ class AuthService
      */
     public function generateHash($names, $email): ConfirmationToken
     {
+        $secrete = env('HASH_SECRET');
+
         $expiresIn = now()->addMinutes(10);
-        $string = str_replace(" ", "%&", $names) . "%&" . $email . "%&" . env('APP_KEY') . "%&" . $expiresIn;
+        $string = str_replace(" ", $secrete, $names) . $secrete . $email . $secrete . env('APP_KEY') . $secrete . $expiresIn;
         $token = Crypt::encrypt($string);
         $veriToken = "VERI-" . strtoupper(Random::generate(10));
 
@@ -48,12 +50,14 @@ class AuthService
      */
     public function decryptHash(User $user, string $hash): bool
     {
+        $secrete = env('HASH_SECRET');
+
         try {
 
             $confirmationToken = ConfirmationToken::where('email', $user->temp_email)->first();
 
             $decryptedHash = Crypt::decrypt($hash);
-            $decryptedParts = explode("%&", $decryptedHash);
+            $decryptedParts = explode($secrete, $decryptedHash);
 
             return
                 strtolower($user->first_name) === strtolower($decryptedParts[0]) &&
@@ -85,7 +89,9 @@ class AuthService
 
             $confirmationToken = ConfirmationToken::where('email', $user->temp_email)->first();
 
-            return $confirmationToken and ($confirmationToken->expires_in > now()) and $confirmationToken->veri_token === $code;
+            return  $confirmationToken and 
+                    ($confirmationToken->expires_in > now()) and 
+                    $confirmationToken->veri_token === $code;
         }
 
         return false;

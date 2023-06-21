@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Order;
 use App\Models\User;
 use App\Models\whatsapp\Utils;
 use Flutterwave\Payload;
@@ -50,10 +51,32 @@ class AirtimeService
 
         try {
 
-            $response = $billService->createPayment($payload);
+            $billService->createPayment($payload);
 
             $this->status = Utils::TRANSACTION_STATUS_SUCCESS;
             $walletService->alterBalance($amount, $userWallet, false);
+
+            $order = Order::create([
+                'order_id' => strtoupper(Random::generate(35)),
+                'description' => Utils::ORDER_CATEGORY_AIRTIME . "(N$amount - $destinationPhone)",
+                'total_amount' => $amount,
+                'status' => Utils::ORDER_STATUS_DELIVERED,
+                'user_id' => $this->user->id
+            ]);
+
+            //Create new Transaction for this user
+            $transactionService = new TransactionService();
+
+            $transactionService->addTransaction([
+                'transaction_reference' => "trans-" . Random::generate(64),
+                'amount' => $amount,
+                'date' => now(),
+                'order_id' => $order->order_id,
+                'method' => Utils::PAYMENT_METHOD_WALLET,
+                'description' => "N$amount airtime purchase for $destinationPhone",
+                'status' => $this->status,
+                'user_id' => $this->user->id
+            ], Utils::ORDER_CATEGORY_AIRTIME);
 
         } catch (\Throwable $th) {
 
@@ -61,20 +84,6 @@ class AirtimeService
                 Utils::TRANSACTION_STATUS_INSUFFICIENT_BALANCE :
                 Utils::TRANSACTION_STATUS_UNSUCCESSFUL;
         }
-
-         //Create new Transaction for this user
-         $transactionService = new TransactionService();
-
-         $transactionService->addTransaction([
-             'transaction_reference' => "trans-".Random::generate(64),
-             'amount' => $amount,
-             'date' => now(),
-             'method' => "WALLET",
-             'description' => "N$amount airtime purchase for $destinationPhone",
-             'payment_reference' => "pay-".Random::generate(64),
-             'status' => $this->status,
-             'user_id' => $this->user->id
-         ]);
 
     }
 

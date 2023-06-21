@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Models\Vendor;
 use App\Models\Wallet;
 use App\Models\whatsapp\Utils;
+use App\Services\EasyLunchService;
 use App\utils\Helpers;
 use Illuminate\Database\Seeder;
 use Nette\Utils\Random;
@@ -31,20 +32,40 @@ class DatabaseSeeder extends Seeder
             'phone' => "2349031514346",
             'first_name' => "Tasiu",
             'last_name' => "TK",
-            'is_admin' => true,
+            'role' => Utils::USER_ROLE_SUPER_ADMIN,
             'email' => "tk@gmail.com",
             'temp_email' => "tk@gmail.com",
             'referral_code' => "jjsjssdbsnbnsdnssdnsi",
+        ]);
+
+        User::create([
+            'phone' => "2349031514347",
+            'first_name' => "Korede",
+            'last_name' => "Usman",
+            'role' => Utils::USER_ROLE_ADMIN,
+            'email' => "tksk@gmail.com",
+            'temp_email' => "tksk@gmail.com",
+            'referral_code' => "jjsjssdbssssnbnsaaadnssdnsi",
         ]);
 
         $user = User::create([
             'phone' => "2347035002025",
             'first_name' => "Ralph",
             'last_name' => "Eze",
-            'is_admin' => false,
+            'role' => Utils::USER_ROLE_USER,
             'email' => "ralphses@gmail.com",
             'temp_email' => "ralphses@gmail.com",
             'referral_code' => "jjsjssdbsnbssnsdnnsi",
+        ]);
+
+        User::create([
+            'phone' => "2347035002022",
+            'first_name' => "Daniel",
+            'last_name' => "Kola",
+            'role' => Utils::USER_ROLE_DISPATCH_RIDER,
+            'email' => "dispatcher@gmail.com",
+            'temp_email' => "dispatcher@gmail.com",
+            'referral_code' => "jjsjssdbsnbssssssnsdnnsi",
         ]);
 
         Wallet::create([
@@ -86,7 +107,7 @@ class DatabaseSeeder extends Seeder
             'vendor_id' => $firstVendor->id
         ]);
 
-        $firstItem = Item::create([
+        $secondItem = Item::create([
             'category' => 'Food',
             'item_name' => 'Eba',
             'item_price' => 470.00,
@@ -95,7 +116,7 @@ class DatabaseSeeder extends Seeder
             'vendor_id' => $firstVendor->id
         ]);
 
-        $firstItem = Item::create([
+        $thirdItem = Item::create([
             'category' => 'Food',
             'item_name' => 'salad',
             'item_price' => 890.00,
@@ -104,7 +125,7 @@ class DatabaseSeeder extends Seeder
             'vendor_id' => $firstVendor->id
         ]);
 
-        $secondItem = Item::create([
+        $forthItem = Item::create([
             'category' => 'Drinks',
             'item_name' => '35cl Coke drink',
             'item_price' => 200.00,
@@ -113,20 +134,34 @@ class DatabaseSeeder extends Seeder
             'vendor_id' => $secondVendor->id
         ]);
 
-        EasyLunch::create([
-            'name' => "basic",
+        
+        $firstEasyLunch = EasyLunch::create([
+            'name' => "Basic",
             'cost_per_week' => "4900",
             'cost_per_month' => "19500"
         ]);
 
-        EasyLunch::create([
-            'name' => "standard",
+        $secondEasyLunch = EasyLunch::create([
+            'name' => "Standard",
             'cost_per_week' => "7900",
             'cost_per_month' => "29500"
         ]);
 
+        //Add items to easylunch
+        $firstEasyLunch->items()->attach(Item::whereIn('id', [$firstItem->id, $secondItem->id, $thirdItem->id])->get());
+        $secondEasyLunch->items()->attach(Item::whereIn('id', [$thirdItem->id, $secondItem->id, $firstItem->id, $forthItem->id])->get());
+
+        $firstEasyLunchDescription = EasyLunchService::getEasyLunchItems($firstEasyLunch);
+        $firstEasyLunch->description = $firstEasyLunchDescription;
+        $firstEasyLunch->save();
+
+        $secondEasyLunchDescription = EasyLunchService::getEasyLunchItems($firstEasyLunch);
+        $secondEasyLunch->description = $secondEasyLunchDescription;
+        $secondEasyLunch->save();
+       
         $cost = 109;
         $price = round($cost + doubleval(env('DATA_PLAN_PROFIT', 20)));
+
         //Create MTN Data plans
         DataPlan::create([
             'name' => "500MB SME",

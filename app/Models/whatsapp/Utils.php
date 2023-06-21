@@ -4,8 +4,18 @@ namespace App\Models\whatsapp;
 
 class Utils
 {
+
+    //User roles
+    public const USER_ROLE_USER = "USER";
+    public const USER_ROLE_SUPER_ADMIN = "SUPER ADMIN";
+    public const USER_ROLE_ADMIN = "ADMIN";
+    public const USER_ROLE_DISPATCH_RIDER = "DISPATCHER";
+
     //Admin events
     public const ADMIN_PROCESS_USER_ORDER = "admin-process-order";
+    public const ADMIN_PROCESS_USER_ORDER_ASSIGN_DISPATCHER = "admin-process-order-assign-disptcher";
+    public const ADMIN_PROCESS_USER_ORDER_DISPATCHER_RECIEVED_ADMIN = "admin-process-order-dispatcher-recieved-admin";
+    public const ADMIN_PROCESS_USER_ORDER_DISPATCHER_RECIEVED_USER = "admin-process-order-dispatcher-recieved-user";
     public const ADMIN_WALLET_EVENTS = "admin-wallet-events";
     public const ADMIN_USER_ORDER_NOTIFY = "admin-user-order-notify";
 
@@ -52,8 +62,7 @@ class Utils
 
     //Reply Buttons
     public const BUTTONS_START_AGAIN = '[button-start-again]';
-    public const BUTTONS_EASY_LUNCH_SUB_PAY_NOW = '[button-easy-lunch-sub-pay-now]';
-    public const BUTTONS_EASY_LUNCH_SUB_PAY_LATER = '[button-easy-lunch-sub-pay-later]';
+    public const BUTTONS_ADD_EASY_LUNCH_SUB = "[easylunch-monthly-add-sub]";
     public const BUTTONS_SUPPORT = '[button-support]';
     public const BUTTONS_GUEST_BEGIN = '[button-guest-begin]';
     public const BUTTONS_VIEW_SERVICES = '[button-view-services]';
@@ -84,10 +93,25 @@ class Utils
 
     //Order statuses
     public const ORDER_STATUS_PROCESSING = 1;
+    public const ORDER_STATUS_PROCESSED = 4;
     public const ORDER_STATUS_CANCELLED = -1;
     public const ORDER_STATUS_DELIVERED = 0;
     public const ORDER_STATUS_INITIATED = 2;
     public const ORDER_STATUS_ENROUTE = 3;
+
+    //Order types
+    public const ORDER_CATEGORY_OTHERS = "OTHERS";
+    public const ORDER_CATEGORY_AIRTIME = "AIRTIME PURCHASE";
+    public const ORDER_CATEGORY_DATA = "DATA SUBSCRIPTION";
+
+    public const ORDER_STATUS_MESSAGE = [
+        self::ORDER_STATUS_CANCELLED => "CANCELLED",
+        self::ORDER_STATUS_PROCESSING => "PROCESSING",
+        self::ORDER_STATUS_DELIVERED => "DELIVERED",
+        self::ORDER_STATUS_INITIATED => "INITIATED",
+        self::ORDER_STATUS_ENROUTE => "ENROUTE",
+        self::ORDER_STATUS_PROCESSED => "PROCESSED",
+    ];
 
     //Order types
     public const ORDER_TYPE_EASY_LUNCH = 'ORDER-EASY-LUNCH';
@@ -109,6 +133,7 @@ class Utils
     public const USER_INPUT_EASY_LUNCH = "Easy lunch"; 
     public const USER_INPUT_MORE = "More"; 
     public const USER_INPUT_VENDORS = "Vendors"; 
+    public const USER_INPUT_CONTACT_ADMIN = "Contact Admin"; 
     public const USER_INPUTS_GREETINGS = ['Hi', 'hi', 'Yo!', 'Yo', 'Howdy!', "What's up!", 'Hey!', 'Hey', 'Hello', 'hello', 'Greetings', 'xup', 'yaa', 'guy', 'babe', 'yaa ne'];
 
     public const USER_INPUT_MESSAGES = [
@@ -123,6 +148,7 @@ class Utils
         self::USER_INPUT_EASY_LUNCH => "To manage Easy Lunch subscription",
         self::USER_INPUT_MORE => "To find out more about our product and services",
         self::USER_INPUT_VENDORS => "View several vendors and their products",
+        self::USER_INPUT_CONTACT_ADMIN => "Chat with an admin",
     ];
 
     //Transaction purchase status
@@ -145,6 +171,13 @@ class Utils
     //Admin Wallets
     public const ADMIN_WALLET_EASY_ACCESS = "Easy Access";
     public const ADMIN_WALLET_FLUTTERWAVE = "Flutterwave";
+
+    //payment methods 
+    public const PAYMENT_METHOD_EASY_LUNCH = "EASY LUNCH";
+    public const PAYMENT_METHOD_TRANSFER = "TRANSFER";
+    public const PAYMENT_METHOD_WALLET = "WALLET";
+    public const PAYMENT_METHOD_ON_DELIVERY = "ON DELIVERY";
+    public const PAYMENT_METHOD_ONLINE = "ONLINE";
 
 
 }

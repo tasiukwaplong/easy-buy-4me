@@ -2,13 +2,16 @@
 
 namespace App\Services;
 
+use App\Events\DispatcherOrderRecievedAdminEvent;
+use App\Events\DispatcherOrderRecievedUserEvent;
+use App\Events\OrderAssignedToDispatcherEvent;
 use App\Events\OrderPlacedEvent;
 use App\Mail\EmailVerification;
 use App\Models\EasyLunch;
 use App\Models\EasyLunchSubscribers;
+use App\Models\Errand;
 use App\Models\Item;
 use App\Models\Order;
-use App\Models\OrderedItem;
 use App\Models\User;
 use App\Models\Vendor;
 use App\Models\whatsapp\ResponseMessages;
@@ -20,7 +23,6 @@ use Illuminate\Support\Str;
 
 class ResponseService
 {
-
     private string $origin;
     private $data;
     private $responseData;
@@ -40,11 +42,17 @@ class ResponseService
 
         } elseif ($this->origin === Utils::ORIGIN_FACEBOOK) {
             //process requests from facebook
-        } elseif ($this->origin === Utils::ORIGIN_TELEGRAM) {
+        } 
+        
+        elseif ($this->origin === Utils::ORIGIN_TELEGRAM) {
             //process requests from Telegram
-        } elseif ($this->origin === Utils::ORIGIN_TWITTER) {
+        } 
+        
+        elseif ($this->origin === Utils::ORIGIN_TWITTER) {
             //process requests from Twitter
-        } else {
+        } 
+        
+        else {
             //send error response
         }
     }
@@ -80,56 +88,53 @@ class ResponseService
                         $orders = $orderService->getUserPendingOrders($user, [Utils::ORDER_STATUS_INITIATED, Utils::ORDER_STATUS_PROCESSING, Utils::ORDER_STATUS_ENROUTE]);
 
                         $this->responseData = ResponseMessages::showOrderStatus($orders, $user);
-                    }
-
+                    } 
+                    
                     elseif (strcasecmp($text, Utils::USER_INPUT_VENDORS) === 0) {
 
                         $this->responseData = ResponseMessages::allVendors($customerPhoneNumber);
-                    }
+                    } 
+                    
+                    elseif (strcasecmp($text, Utils::USER_INPUT_CONTACT_ADMIN) === 0) {
 
-                    elseif(strcasecmp($text, Utils::USER_INPUT_CART) === 0) {
+                        $this->responseData = ResponseMessages::showContactAdmin($customerPhoneNumber);
+                    } 
+                    
+                    elseif (strcasecmp($text, Utils::USER_INPUT_CART) === 0) {
 
                         $userPendingOrder = $orderService->getUserPendingOrder($user);
 
                         $this->responseData = $userPendingOrder ? ResponseMessages::sendUserCart($customerPhoneNumber, $userPendingOrder, false) :
-                                                ResponseMessages::sendUserCart($customerPhoneNumber, false, true);
-                    }
-
-                    elseif(strcasecmp($text, Utils::USER_INPUT_DATA) === 0) {
+                            ResponseMessages::sendUserCart($customerPhoneNumber, false, true);
+                    } 
+                    
+                    elseif (strcasecmp($text, Utils::USER_INPUT_DATA) === 0) {
                         $networkNames = DataService::getAllNetworks();
                         $this->responseData = ResponseMessages::showDataNetworks($customerPhoneNumber, $networkNames);
-                    }
-
-                    elseif(strcasecmp($text, Utils::USER_INPUT_ERRAND) === 0 or strcasecmp($text, "Errands") === 0) {
-                        $this->responseData = ResponseMessages::errandHome($customerPhoneNumber);
-                    }
-
-                    elseif(strcasecmp($text, Utils::USER_INPUT_EASY_LUNCH) === 0) {
-
-                        //Check if this user is already subscribed
-                        $easyLunchService = new EasyLunchService();
-                        $isActive = $easyLunchService->isSubscribed($user);
-
-                        //find easy lunch order 
-                        $easyLunchOrder = $orderService->findEasyLunchOrder($user);
-
-                        $this->responseData = ResponseMessages::easyLunchHome($user, EasyLunch::all(), $isActive, $easyLunchOrder);
-                    }
-
-
-                    elseif(strcasecmp($text, Utils::USER_INPUT_WALLET) === 0) {
-                        $this->responseData = ResponseMessages::userWallets($user);                        
-                    }
-
-                    elseif(strcasecmp($text, Utils::USER_INPUT_AIRTIME) === 0) {
-                        $this->responseData = ResponseMessages::showAirtime($customerPhoneNumber);
-                    }
-
-                    elseif(strcasecmp($text, Utils::USER_INPUT_TRANSACTIONS) === 0) {
-                        $this->responseData = $this->getUserTransactions($customerPhoneNumber, $user);
-                    }
+                    } 
                     
-                    elseif(Str::startsWith($text, "purchase")) {
+                    elseif (strcasecmp($text, Utils::USER_INPUT_ERRAND) === 0 or strcasecmp($text, "Errands") === 0) {
+                        $this->responseData = ResponseMessages::errandHome($customerPhoneNumber);
+                    } 
+                    
+                    elseif (strcasecmp($text, Utils::USER_INPUT_EASY_LUNCH) === 0) {
+
+                        $this->responseData = $this->getEasylunchHome($user);
+                    } 
+                    
+                    elseif (strcasecmp($text, Utils::USER_INPUT_WALLET) === 0) {
+                        $this->responseData = ResponseMessages::userWallets($user);
+                    } 
+                    
+                    elseif (strcasecmp($text, Utils::USER_INPUT_AIRTIME) === 0) {
+                        $this->responseData = ResponseMessages::showAirtime($customerPhoneNumber);
+                    } 
+                    
+                    elseif (strcasecmp($text, Utils::USER_INPUT_TRANSACTIONS) === 0) {
+                        $this->responseData = $this->getUserTransactions($customerPhoneNumber, $user);
+                    } 
+                    
+                    elseif (Str::startsWith($text, "purchase")) {
 
                         $text = strtoupper($text);
 
@@ -138,14 +143,14 @@ class ResponseService
                         $networkName = $parts[0];
                         $dataPlan = $parts[1];
                         $type = $parts[2];
-                        $destinationPhone = ($parts[3] ?? false) ? "+234".Str::substr($parts[3], 1) : "+".$customerPhoneNumber;
+                        $destinationPhone = ($parts[3] ?? false) ? "+234" . Str::substr($parts[3], 1) : "+$customerPhoneNumber";
 
                         $thisData = DataService::get(array('name' => "$dataPlan $type", 'network_name' => $networkName));
 
-                        $this->responseData = (is_int($thisData) and $thisData == Utils::DATA_STATUS_NOT_FOUND) ? 
-                                            ResponseMessages::wrongDataPlanEntry($customerPhoneNumber, $text) : 
-                                            ResponseMessages::confirmDataPurchase($customerPhoneNumber, $thisData, $destinationPhone);
-                    }
+                        $this->responseData = (is_int($thisData) and $thisData == Utils::DATA_STATUS_NOT_FOUND) ?
+                            ResponseMessages::wrongDataPlanEntry($customerPhoneNumber, $text) :
+                            ResponseMessages::confirmDataPurchase($customerPhoneNumber, $thisData, $destinationPhone);
+                    } 
                     
                     elseif (Str::startsWith($text, 'recharge ')) {
 
@@ -160,11 +165,47 @@ class ResponseService
 
                         $this->responseData = ResponseMessages::dataPurchaseStatus($customerPhoneNumber, $transactionStatusMessage);
                     } 
+
+                    elseif(Str::startsWith($text, "delivery address ")) {
+
+                        $parts = explode(" ", $text);
+                        $easylunchRequest = strcasecmp("EASYLUNCH", $parts[2]) === 0;
+
+                        $address = strtoupper($easylunchRequest ? Str::replace("delivery address easylunch ", "", $text) : Str::replace("delivery address ", "", $text));
+
+                        $order = $orderService->getUserPendingOrder($user);
+
+                        if(!$order) {
+                            $this->responseData = ResponseMessages::noPendingOrder($customerPhoneNumber);
+                        } else 
+                        
+                        {
+
+                            $orderErrand = Errand::where('order_id', $order->id)->first();
+
+                            if ($orderErrand) {
+
+                                $orderErrand->delivery_address;
+                                $orderErrand->save();
+                            } else {
+                                $orderErrand = Errand::create([
+                                    'destination_phone' => $customerPhoneNumber,
+                                    'dispatcher' => "",
+                                    'delivery_address' => $address,
+                                    'delivery_fee' => 0.0,
+                                    'status' => Utils::ORDER_STATUS_INITIATED,
+                                    'order_id' => $order->id
+                                ]);
+                            }
+
+                            $this->responseData = ResponseMessages::confirmDeliveryAddress($customerPhoneNumber, $order, $address, $easylunchRequest);
+                        }
+                    }
                     
                     elseif (str_starts_with($text, "process-order-")) {
 
-                        //this opertions is handled by admin only
-                        if ($user->is_admin) {
+                        //this operations are handled by admin only
+                        if (in_array($user->role, [Utils::USER_ROLE_ADMIN, Utils::USER_ROLE_SUPER_ADMIN], true)) {
 
                             $processMessage = str_replace("process-order-", "", $text);
 
@@ -183,19 +224,18 @@ class ResponseService
                     elseif (in_array($text, Utils::USER_INPUTS_GREETINGS) or strcasecmp($text, Utils::USER_INPUT_MENU) === 0) {
                         $this->responseData = ResponseMessages::dashboardMessage($user);
                     } 
-
+                    
                     elseif (strcasecmp($text, Utils::USER_INPUT_MORE) === 0) {
                         $this->responseData = ResponseMessages::showMore($customerPhoneNumber);
                     } 
                     
                     else {
-
                         //Send error message to existing customer
                         $this->responseData = ResponseMessages::errorMessage($customerPhoneNumber, true, false);
                     }
                 }
 
-                if ($incomingMessageType === Utils::INTERACTIVE) {
+                elseif ($incomingMessageType === Utils::INTERACTIVE) {
 
                     $interactiveMessage = $incomingMessage['interactive'];
 
@@ -204,6 +244,12 @@ class ResponseService
                         $interactiveMessageId = $interactiveMessage[Utils::LIST_REPLY]['id'];
 
                         switch ($interactiveMessageId) {
+
+                            case Utils::BUTTONS_ADD_EASY_LUNCH_SUB: {
+                                
+                                $this->responseData = ResponseMessages::easyLunchPackages($user);
+                                break;
+                            }
 
                             case Utils::DATA: {
                                     $networkNames = DataService::getAllNetworks();
@@ -218,14 +264,7 @@ class ResponseService
                                 }
 
                             case Utils::EASY_LUNCH: {
-
-                                    $easyLunchService = new EasyLunchService();
-                                    $isActive = $easyLunchService->isActive($user);
-
-                                     //find easy lunch order 
-                                    $easyLunchOrder = $orderService->findEasyLunchOrder($user);
-
-                                    $this->responseData = ResponseMessages::easyLunchHome($user, EasyLunch::all(), $isActive, $easyLunchOrder);
+                                    $this->responseData = $this->getEasylunchHome($user);
                                     break;
                                 }
 
@@ -302,16 +341,36 @@ class ResponseService
                             $easylunchRequest = $parts[1] ?? false;
 
                             $this->responseData = ResponseMessages::vendorCatalog($customerPhoneNumber, $vendor, $easylunchRequest);
-  
                         } 
                         
-                        elseif(Str::startsWith($messge, "select-network:")) {
+                        elseif (Str::startsWith($messge, 'easylunch-weekly:') or Str::startsWith($messge, 'easylunch-monthly:')) {
+
+                            $easyLunchService = new EasyLunchService();
+                            $easylunchId = Str::replace("easylunch-weekly:", "", $messge);
+
+                            $easylunch = EasyLunch::find($easylunchId);
+
+                            if($easyLunchService->isUsed($user, $easylunch)) {
+                                $this->responseData = ResponseMessages::easylunchUsed($customerPhoneNumber, $easylunch);
+                            }
+
+                            elseif (count($easyLunchService->getSubscriptions($user)) > 0) {
+                                
+                                $easylunchOrder = $orderService->createEasylunchOrder($user, $easylunchId);
+
+                                $this->responseData = ResponseMessages::confirmOrderCheckout($customerPhoneNumber, $easylunchOrder, true);
+                            } 
+                            
+                            else $this->responseData = ResponseMessages::easyLunchHome($customerPhoneNumber);
+                        }
+                        
+                        elseif (Str::startsWith($messge, "select-network:")) {
 
                             $networkName = Str::replace("select-network:", "", $messge);
                             $dataPlans = DataService::fetchDataPlans($networkName);
 
                             $this->responseData = ResponseMessages::showNetworkDataPlans($customerPhoneNumber, $dataPlans);
-                        }
+                        } 
                         
                         elseif (Str::startsWith($messge, "order-")) {
 
@@ -323,7 +382,7 @@ class ResponseService
                             $vendorId = $parts[0];
                             $easylunchRequest = $parts[2] ?? false;
 
-                            $updatedOrder = $orderService->addOrderedItem($order, $itemId, $vendorId);
+                            $updatedOrder = $orderService->addOrderedItem($order, $itemId, $vendorId, $easylunchRequest);
 
                             $this->responseData = ResponseMessages::currentOrder($customerPhoneNumber, $updatedOrder, $easylunchRequest);
                         } 
@@ -350,61 +409,80 @@ class ResponseService
                         
                         elseif (str_starts_with($messge, "select-wallet-")) {
 
-                            $method = "WALLET";
+                            $method = Utils::PAYMENT_METHOD_WALLET;
 
                             //Get user preferred payment methods
                             $payOnline = str_starts_with($messge, "select-wallet-online");
                             $payViaTransfer = str_starts_with($messge, "select-wallet-transfer");
                             $payOnDelivery = str_starts_with($messge, "select-wallet-delivery");
 
+                            switch (true) {
+                                case $payOnline:
+                                    $method = Utils::PAYMENT_METHOD_ONLINE;
+                                    break;
+
+                                case $payOnDelivery:
+                                    $method = Utils::PAYMENT_METHOD_ON_DELIVERY;
+                                    break;
+                                
+                                case $payViaTransfer:
+                                    $method = Utils::PAYMENT_METHOD_TRANSFER;
+                                    break;
+                                
+                                default:
+                                    # code...
+                                    break;
+                            }
+
                             $parts = explode(":", str_replace("select-wallet-", "", $messge));
 
-                            $walletId = $parts[0];
                             $orderId = $parts[1];
 
                             $order = Order::find($orderId);
+                            $walletService = new WalletService();
 
-                            if(in_array($order->status, [Utils::ORDER_STATUS_DELIVERED, Utils::ORDER_STATUS_ENROUTE])) {
+                            if ($order->status !== Utils::ORDER_STATUS_INITIATED) {
                                 $this->responseData = ResponseMessages::orderAlreadyProcessed($customerPhoneNumber, $order);
-                            }
-
-                            elseif ($payOnline) {
-
-                                $method = "ONLINE";
-                                //Message to user for online payment
-                                $this->responseData = ResponseMessages::userPayMethod($customerPhoneNumber, $orderId, $method);
-                            }
-
-                            elseif ($payViaTransfer) {
-
-                                $method = "TRANSFER";
-                                $this->responseData = ResponseMessages::userPayMethod($customerPhoneNumber, $orderId, $method);
-                            }
-
-                            elseif ($payOnDelivery) {
-                                $method = "PAY ON DELIVERY";
-                                $this->responseData = ResponseMessages::userPayMethod($customerPhoneNumber, $orderId, $method);
-                            }
-
+                            } 
+                            
                             else {
-                                $errand = $orderService->performCheckout($orderId, $walletId);
 
-                            if ($errand) {
+                                if ($method === Utils::PAYMENT_METHOD_WALLET) {
 
-                                if ($method === "WALLET") {
-                                    //Notify user that their order has been placed
-                                    $this->responseData = ResponseMessages::userOrderPlaced($customerPhoneNumber, $orderId);
+                                    if (Str::startsWith($order->description, "Easy lunch package")) {
+
+                                        if ($walletService->isFundsAvailable($user, $order->total_amount)) {
+                                            //Perform checkout
+                                            $order = $orderService->performCheckout($orderId, $user->wallet->id, $method);
+
+                                            //Notify user that their order has been placed
+                                            $this->responseData = ResponseMessages::userOrderPlaced($customerPhoneNumber, $order);
+                                        } 
+                                        
+                                        else {
+                                            $this->responseData = ResponseMessages::insufficientBalnce($customerPhoneNumber, $orderId);
+                                        }
+                                    } 
+                                    
+                                    else {
+
+                                        $this->responseData = ($walletService->isFundsAvailable($user, $order->total_amount)) ?
+                                            ResponseMessages::enterOrderDeliveryAddress($customerPhoneNumber) :
+                                            ResponseMessages::insufficientBalnce($customerPhoneNumber, $orderId);
+                                    }
+                                } 
+                                
+                                else {
+                                    //Todo: Request delivery address
+                                    $this->responseData = ResponseMessages::enterOrderDeliveryAddress($customerPhoneNumber);
                                 }
 
-                                //send notification to admin
-                                event(new OrderPlacedEvent($customerPhoneNumber, $errand, $method));
-
-                            } else {
-
-                                $this->responseData = ResponseMessages::insufficientBalnce($customerPhoneNumber, $orderId);
-                            }
+                                //Update transaction payment method
+                                $transactionService = new TransactionService();
+                                $transactionService->updateTransaction($order->transaction, array('method' => $method));
                             }
                         }
+
                     } 
                     
                     elseif ($interactiveMessage['type'] === Utils::BUTTON_REPLY) {
@@ -413,10 +491,10 @@ class ResponseService
 
                             case Utils::BUTTONS_DATA_PLAN_NETWORKS: {
 
-                                $networkNames = DataService::getAllNetworks();
-                                $this->responseData = ResponseMessages::showDataNetworks($customerPhoneNumber, $networkNames);
-                                break;
-                            }
+                                    $networkNames = DataService::getAllNetworks();
+                                    $this->responseData = ResponseMessages::showDataNetworks($customerPhoneNumber, $networkNames);
+                                    break;
+                                }
 
                             case Utils::BUTTONS_FUND_MY_WALLET: {
                                     $this->responseData = ResponseMessages::showFundMyWallet($user);
@@ -429,7 +507,7 @@ class ResponseService
                                 }
 
                             case Utils::BUTTONS_SUPPORT: {
-                                    $admin = $userService->getAdmin();
+                                    $admin = UserService::getAdmin();
                                     $this->responseData = ResponseMessages::showSupport($customerPhoneNumber, $admin);
                                     break;
                                 }
@@ -478,18 +556,68 @@ class ResponseService
                             $nextPage = Str::replace("buttons-transaction-history:", "", $messge, false);
 
                             $this->responseData = $this->getUserTransactions($customerPhoneNumber, $user, $nextPage);
+                        } 
+
+                        elseif(Str::startsWith($messge, "dispatcher-confirm:noted:")) {
+
+                            if($user->role === Utils::USER_ROLE_DISPATCH_RIDER) {
+
+                                $order = Order::find(Str::replace("dispatcher-confirm:noted:", "", $messge));
+                                
+                                //Notify Admin of receipt
+                                event(new DispatcherOrderRecievedAdminEvent($order));
+
+                                //Notify User of order on the way
+                                event(new DispatcherOrderRecievedUserEvent($order));
+
+                            }
                         }
 
-                        elseif(Str::startsWith($messge, "button-easy-lunch-later:")) {
+                        elseif (Str::startsWith($messge, "address-confirm:")) {
 
-                            $easyLunchId = Str::replace("button-easy-lunch-later:", "", $messge);
-                            $easyLunchSub = EasyLunchSubscribers::find($easyLunchId);
+                            $parts = explode(":", Str::replace("address-confirm:", "", $messge, false));
 
-                            $easyluchSubOrder = $orderService->addEasyLunchOrder($user, "Easy lunch package $easyLunchSub->package_type - N$easyLunchSub->amount", $easyLunchSub->amount);
-                            $this->responseData = ResponseMessages::easyLunchPayLater($customerPhoneNumber);
+                            $confirmation = $parts[0];
+                            $orderId = $parts[1];
+                            $easylunchRequest = $parts[2] ?? false;
 
+                            $order = Order::find($orderId);
+
+                            if($easylunchRequest) {
+                                $order->transaction->update(['method' => Utils::PAYMENT_METHOD_EASY_LUNCH]);
+                            }
+
+                            if($confirmation === 'yes') {
+
+                                $method = $order->transaction->method;
+
+                                if ($method === Utils::PAYMENT_METHOD_WALLET or $method === Utils::PAYMENT_METHOD_EASY_LUNCH) {
+
+                                    //Perform checkout
+                                    $order = $orderService->performCheckout($orderId, ($easylunchRequest) ?  Utils::PAYMENT_METHOD_EASY_LUNCH : $user->wallet->id, $method);
+
+                                    //Notify user that their order has been placed
+                                    $this->responseData = ResponseMessages::userOrderPlaced($customerPhoneNumber, $order);
+                                }
+                                else {
+                                    
+                                 $order = $orderService->performCheckout($orderId, $method, $method);
+                                    $this->responseData = ResponseMessages::userPayMethod($customerPhoneNumber, $orderId, $method);
+                                }
+
+                                 //send notification to admin
+                                 event(new OrderPlacedEvent($user, $order, $method));
+
+                            }
+                            else {
+
+                                $order->updated_at = now();
+                                $order->save();
+
+                                $this->responseData = ResponseMessages::enterOrderDeliveryAddress($customerPhoneNumber);
+                            }
                         }
-
+                        
                         elseif (Str::startsWith($messge, "data-confirm:")) {
 
                             $parts = explode(":", Str::replace("data-confirm:", "", $messge));
@@ -499,10 +627,10 @@ class ResponseService
                             $dataService = new DataService($user);
                             $dataService->confirmDataPurchase($dataPlan, $parts[1]);
                             $status = $dataService->getStatus();
-                            
-                            $this->responseData = ResponseMessages::sendDataPurchaseResponse($customerPhoneNumber, $dataPlan, $status);
-                        }
 
+                            $this->responseData = ResponseMessages::sendDataPurchaseResponse($customerPhoneNumber, $dataPlan, $status);
+                        } 
+                        
                         elseif (str_starts_with($messge, "Order from ")) {
 
                             $vendorId = str_replace("Order from ", "", $messge);
@@ -511,8 +639,9 @@ class ResponseService
                             if ($vendor) {
                                 $this->responseData = ResponseMessages::vendorCatalog($customerPhoneNumber, $vendor, false);
                             }
-                            
-                        } elseif (str_starts_with($messge, "button-easy-lunch-sub-pay-now:")) {
+                        } 
+                        
+                        elseif (str_starts_with($messge, "button-easy-lunch-sub-pay-now:")) {
 
                             $easyLunchSubId = str_replace("button-easy-lunch-sub-pay-now:", "", $messge);
 
@@ -525,35 +654,45 @@ class ResponseService
                         
                         elseif (str_starts_with($messge, "button-order-checkout")) {
 
-                            $orderId = str_replace("button-order-checkout:", "", $messge);
+                            $parts = explode(":", str_replace("order-confirm-", "", $messge));
+
+                            $easylunchRequest = $parts[2] ?? false;
+                            $orderId = $parts[1];
 
                             $easyLunchService = new EasyLunchService();
-                            $easylunchRequest = $easyLunchService->isActive($user);
+                            $easylunchRequest = ($easyLunchService->isActive($user) and $easylunchRequest);
+
 
                             $order = Order::find($orderId);
+
+                            if(Str::startsWith($order->description, 'Easy lunch package')) {
+                                $easylunchRequest = false;
+                            }
 
                             if ($order) {
                                 $this->responseData = ResponseMessages::confirmOrderCheckout($customerPhoneNumber, $order, $easylunchRequest);
                             }
-                        } elseif (str_starts_with($messge, "order-confirm-")) {
+
+                        } 
+                        
+                        elseif (str_starts_with($messge, "order-confirm-")) {
 
                             $parts = explode(":", str_replace("order-confirm-", "", $messge));
 
                             $response = $parts[0];
                             $orderId = $parts[1];
                             $easylunchRequest = $parts[2] ?? false;
+                            $order = Order::find($orderId);
 
                             if ($response == 'yes') {
 
                                 if ($easylunchRequest) {
 
-                                    $errand = $orderService->performCheckout($orderId, "easylunch");
-                                    event(new OrderPlacedEvent($customerPhoneNumber, $errand, "EASYLUNCH"));
-
-                                    $this->responseData = ResponseMessages::userOrderPlaced($customerPhoneNumber);
+                                    $this->responseData = ResponseMessages::enterOrderDeliveryAddress($customerPhoneNumber, $easylunchRequest);
+                                    
                                 } else {
 
-                                    $this->responseData = ResponseMessages::chooseWallet($customerPhoneNumber, $orderId);
+                                    $this->responseData = ResponseMessages::chooseWallet($customerPhoneNumber, $order);
                                 }
                             } else {
 
@@ -617,7 +756,9 @@ class ResponseService
 
                         //ask user to enter name
                         $this->responseData = ResponseMessages::enterNameMessage($text, $customerPhoneNumber, false);
-                    } elseif (preg_match("([aA-zZ] [aA-zZ])", $text)) {
+                    } 
+                    
+                    elseif (preg_match("([aA-zZ] [aA-zZ])", $text)) {
 
                         //check for temp_email
                         if ($user and $user->temp_email) {
@@ -648,8 +789,9 @@ class ResponseService
                                 $customerPhoneNumber,
                                 false
                             );
-                        } else $this->responseData = ResponseMessages::errorMessage($customerPhoneNumber, false, false);
-                    
+                        } 
+                        
+                        else $this->responseData = ResponseMessages::errorMessage($customerPhoneNumber, false, false);
                     } 
                     
                     elseif (in_array($text, Utils::USER_INPUTS_GREETINGS)) {
@@ -658,7 +800,6 @@ class ResponseService
                     } 
                     
                     else $this->responseData = ResponseMessages::errorMessage($customerPhoneNumber, false, false);
-                
                 } 
                 
                 elseif ($incomingMessageType === Utils::INTERACTIVE) {
@@ -715,46 +856,71 @@ class ResponseService
             $user = $userService->getUserByPhoneNumber($this->data['phone']);
 
             if ($user) {
-
+                
                 //Send user dashboard message
                 $this->responseData = ResponseMessages::dashboardMessage($user);
             }
-        } 
-        
-        elseif ($this->origin == Utils::ADMIN_EVENTS) {
+
+        } elseif ($this->origin == Utils::ADMIN_EVENTS) {
 
             $eventType = $this->data['type'];
 
             if ($eventType === Utils::ADMIN_USER_ORDER_NOTIFY) {
 
-                $errand = $this->data['errand'];
+                $order = $this->data['order'];
 
-                if ($errand) {
+                $customer = $this->data['customer'];
+                $method = $this->data['method'];
 
-                    $customerPhoneNumber = $this->data['phone'];
-                    $method = $this->data['method'];
+                $this->responseData = ResponseMessages::notifyAdmin($customer, $order, $method);
 
-                    $this->responseData = ResponseMessages::notifyAdmin($customerPhoneNumber, $errand, $method);
-                }
-
-            
             } 
-            elseif ($eventType === Utils::ADMIN_PROCESS_USER_ORDER) {
 
-                $this->responseData = ResponseMessages::userOrderProcessed($this->data['customerPhone'], $this->data['order'], $this->data['dispatcher'], $this->data['fee']);
+            elseif(in_array($eventType, [Utils::ADMIN_PROCESS_USER_ORDER_DISPATCHER_RECIEVED_USER, Utils::ADMIN_PROCESS_USER_ORDER_DISPATCHER_RECIEVED_ADMIN])) {
+
+                $order = $this->data['order'];
+                $this->responseData = ResponseMessages::orderOnTheWayNotifyer($order, $eventType);
+                
+            }
+            
+            elseif ($eventType === Utils::ADMIN_PROCESS_USER_ORDER) {
+                
+               $contact = $this->data['customerPhone'];
+               $order = $this->data['order']; 
+               $dispatcherPhone = $this->data['dispatcher'];
+               $fee = $this->data['fee'];
+               $location = Errand::where('order_id', $order->id)->first()->delivery_address;
+
+               //Notify user that order has been processed
+               $transactionService = new TransactionService();
+               $transactionService->updateTransaction($order->transaction, ['status' => Utils::TRANSACTION_STATUS_SUCCESS]);
+
+               //Update order status
+               $order->status = Utils::ORDER_STATUS_PROCESSED;
+               $order->save();
+
+               //Update invoice 
+               $orderInvoice = $order->transaction->orderInvoice;
+               $orderInvoice->url = OrderService::getOrderInvoice($order);
+               $orderInvoice->save();
+               
+               $this->responseData = ResponseMessages::userOrderProcessed($contact, $order, $dispatcherPhone, $fee);
+
+                //Dispatch message to a dispatcher rider
+                event(new OrderAssignedToDispatcherEvent($order, $dispatcherPhone, $fee, $contact, $location));
 
                 //send reciept to user
-            }
-
+            } 
+            
             elseif ($eventType === Utils::ADMIN_WALLET_EVENTS) {
 
                 $wallet = $this->data['wallet'];
 
 
-                if($wallet == Utils::ADMIN_WALLET_EASY_ACCESS) {
+                if ($wallet == Utils::ADMIN_WALLET_EASY_ACCESS) {
 
                     $adminResponse = Http::withHeaders(["AuthorizationToken" => env('EASY_ACCESS_TOKEN'), "cache-control" => "no-cache"])
-                                ->get("https://easyaccess.com.ng/api/wallet_balance.php");
+                        ->get("https://easyaccess.com.ng/api/wallet_balance.php");
 
 
                     $requestResponseData = $adminResponse->json();
@@ -762,24 +928,47 @@ class ResponseService
                     $checkDate = $requestResponseData['checked_date'];
                     $accounts = [];
 
-                    for($count = 1; $count <= 10; $count++) {
-                        if($requestResponseData["funding_acctno$count"] ?? false) {
+                    for ($count = 1; $count <= 10; $count++) {
+                        if ($requestResponseData["funding_acctno$count"] ?? false) {
                             array_push($accounts, new VirtualAccount($requestResponseData["funding_bank$count"], $requestResponseData["funding_acctno$count"], $requestResponseData["funding_acctname"]));
                         }
                     }
 
-                    $admin = User::where('is_admin', true)->first();
+                    $admin = User::where('role', Utils::USER_ROLE_ADMIN)->first();
                     $this->responseData = ResponseMessages::walletLowNotification($admin, $accounts, $currenntBalance, $checkDate, $wallet);
                 }
             }
 
+            elseif($eventType === Utils::ADMIN_PROCESS_USER_ORDER_ASSIGN_DISPATCHER) {
+
+               $contact = $this->data['customerPhone'];
+               $order = $this->data['order']; 
+               $dispatcherPhone = $this->data['dispatcher'];
+               $fee = $this->data['fee'];
+               $location = $this->data['location'];
+
+               $dispatcher = UserService::getAdmin($dispatcherPhone, Utils::USER_ROLE_DISPATCH_RIDER);
+
+               
+               if($dispatcher) {
+
+                $this->responseData = ResponseMessages::messageDispatcher(
+                    $order,
+                    $fee,
+                    $location,
+                    $contact,
+                    $dispatcher
+                );
+
+               }
+
+            }
+
+           
+
         } else {
             //send error message
         }
-    }
-
-    public function getResult()
-    {
     }
 
     public function sendResponse()
@@ -804,5 +993,16 @@ class ResponseService
         $userTransactions = $transactionService->fetchUserTransaction($user, $nextPage);
 
         return ResponseMessages::showUserTransactionHistory($customerPhoneNumber, $userTransactions);
+    }
+
+    private function getEasylunchHome(User $user) {
+
+        //Check if this user is already subscribed
+        $easyLunchService = new EasyLunchService();
+        $subscriptions = $easyLunchService->getSubscriptions($user);
+
+        return  ($subscriptions->count() > 0) ? 
+                ResponseMessages::viewEasyLunchSubscriptions($user, $subscriptions) :
+                ResponseMessages::easyLunchHome($user->phone);
     }
 }

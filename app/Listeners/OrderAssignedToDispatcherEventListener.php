@@ -2,13 +2,13 @@
 
 namespace App\Listeners;
 
-use App\Events\OrderPlacedEvent;
+use App\Events\OrderAssignedToDispatcherEvent;
 use App\Models\whatsapp\Utils;
 use App\Services\ResponseService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Queue\InteractsWithQueue;
 
-class OrderPlacedEventListener
+class OrderAssignedToDispatcherEventListener
 {
     /**
      * Create the event listener.
@@ -21,18 +21,18 @@ class OrderPlacedEventListener
     /**
      * Handle the event.
      */
-    public function handle(OrderPlacedEvent $event): void
+    public function handle(OrderAssignedToDispatcherEvent $event): void
     {
-
         $responseService = new ResponseService(Utils::ADMIN_EVENTS, [
-            'type' => Utils::ADMIN_USER_ORDER_NOTIFY,
-            'customer' => $event->customer,
+            'type' => Utils::ADMIN_PROCESS_USER_ORDER_ASSIGN_DISPATCHER,
             'order' => $event->order,
-            'method' => $event->paymentMethod
+            'dispatcher' => $event->dispatcher,
+            'fee' => $event->fee,
+            'customerPhone' => $event->customerPhone,
+            'location' => $event->location
         ]);
 
         $responseService->processRequest();
-
         $responseService->sendResponse();
     }
 }
