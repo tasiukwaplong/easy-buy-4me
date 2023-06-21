@@ -2,9 +2,6 @@
 
 namespace App\Events;
 
-use App\Models\Errand;
-use App\Models\Order;
-use App\Models\User;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PresenceChannel;
@@ -13,23 +10,26 @@ use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-class OrderPlacedEvent
+class OrderAssignedToDispatcherEvent
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
-    public string $paymentMethod;
-    public Order $order;
-    public User $customer;
+    public $order;
+    public $dispatcher;
+    public $fee;
+    public $customerPhone;
+    public $location;
 
     /**
      * Create a new event instance.
      */
-    public function __construct(User $customer, Order $order, string $paymentMethod)
+    public function __construct($order, $dispatcher, $fee, $customerPhone, $location)
     {
-        $this->customer = $customer;
-        $this->paymentMethod = $paymentMethod;
-        $this->order =$order;
-
+        $this->order = $order;
+        $this->dispatcher = $dispatcher;
+        $this->fee = $fee;
+        $this->customerPhone = $customerPhone;
+        $this->location = $location;
     }
 
     /**

@@ -21,7 +21,7 @@ class OrderedItem extends Model
         return $this->belongsTo(Order::class, 'order_id');
     }
 
-    public function item() : HasOne {
-        return $this->hasOne(Item::class, 'item_id');
+    public function item() : BelongsTo {
+        return $this->belongsTo(Item::class, 'item_id');
     }
 }

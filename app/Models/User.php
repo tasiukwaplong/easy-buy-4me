@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
@@ -15,7 +16,7 @@ class User extends Model
         'phone',
         'first_name',
         'last_name',
-        'is_admin',
+        'role',
         'email',
         'temp_email',
         'referral_code',
@@ -40,5 +41,9 @@ class User extends Model
     public function orders(): HasMany
     {
         return $this->hasMany(Order::class);
+    }
+
+    public function easylunchsSubscribers() : BelongsToMany {
+        return $this->belongsToMany(EasyLunchSubscribers::class, 'users_easylunch_subscriptions', 'user_id', 'easy_lunch_subscribers_id');
     }
 }

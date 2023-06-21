@@ -2,10 +2,16 @@
 
 namespace App\Providers;
 
+use App\Events\DispatcherOrderRecievedAdminEvent;
+use App\Events\DispatcherOrderRecievedUserEvent;
+use App\Events\OrderAssignedToDispatcherEvent;
 use App\Events\OrderPlacedEvent;
 use App\Events\OrderProcessedEvent;
 use App\Events\RegistrationCompleteEvent;
 use App\Events\WalletLowEvent;
+use App\Listeners\DispatcherOrderRecievedAdminListener;
+use App\Listeners\DispatcherOrderRecievedUserListener;
+use App\Listeners\OrderAssignedToDispatcherEventListener;
 use App\Listeners\OrderPlacedEventListener;
 use App\Listeners\OrderProcessedEventListener;
 use App\Listeners\RegistrationCompleteListener;
@@ -23,14 +29,15 @@ class EventServiceProvider extends ServiceProvider
      * @var array<class-string, array<int, class-string>>
      */
     protected $listen = [
-        Registered::class => [
-            SendEmailVerificationNotification::class,
-        ],
-
+        Registered::class => [SendEmailVerificationNotification::class],
         RegistrationCompleteEvent::class => [RegistrationCompleteListener::class],
         OrderPlacedEvent::class => [OrderPlacedEventListener::class],
         OrderProcessedEvent::class => [OrderProcessedEventListener::class],
         WalletLowEvent::class => [WalletLowEventListener::class],
+        OrderAssignedToDispatcherEvent::class => [OrderAssignedToDispatcherEventListener::class],
+        DispatcherOrderRecievedAdminEvent::class => [DispatcherOrderRecievedAdminListener::class],
+        DispatcherOrderRecievedUserEvent::class => [DispatcherOrderRecievedUserListener::class],
+
     ];
 
     /**

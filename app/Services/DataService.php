@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Events\WalletLowEvent;
 use App\Exceptions\InsufficientFundException;
 use App\Models\DataPlan;
+use App\Models\Order;
 use App\Models\User;
 use App\Models\whatsapp\Utils;
 use Exception;
@@ -43,21 +44,43 @@ class DataService
 
                 //send data here, may throw exception
                 $response = $this->sendDataRequest($dataPlan->network_code, $destinationPhone, $dataPlan->dataplan, $transactionReference);
-                if(Str::startsWith($response['success'], 'false') and $response['message'] == "Insufficient Balance") {
+
+                if (Str::startsWith($response['success'], 'false') and $response['message'] == "Insufficient Balance") {
 
                     //Notify admin that wallet is low
                     event(new WalletLowEvent(Utils::ADMIN_WALLET_EASY_ACCESS));
                     throw new Exception("Error Processing Request");
-                    
-
                 }
 
                 //Debit user
                 $walletService->alterBalance($dataPlan->price, $userWallet, false);
 
-                $this->status = Utils::TRANSACTION_STATUS_SUCCESS;
+                $order = Order::create([
+                    'order_id' => strtoupper(Random::generate(35)),
+                    'description' => $dataPlan->description,
+                    'total_amount' => $dataPlan->price,
+                    'status' => Utils::ORDER_STATUS_DELIVERED,
+                    'user_id' => $this->user->id
+                ]);
 
-            } else throw new InsufficientFundException("Insufficient balance.\nWallet balance: $userWallet->balance");
+                //create transaction
+                $transactionService = new TransactionService();
+                $transactionService->addTransaction([
+                    'transaction_reference' => $transactionReference,
+                    'amount' => $dataPlan->price,
+                    'date' => now(),
+                    'order_id' => $order->order_id,
+                    'method' => Utils::PAYMENT_METHOD_WALLET,
+                    'description' => $dataPlan->description,
+                    'status' => $this->status,
+                    'user_id' => $this->user->id
+                ],
+                    Utils::ORDER_CATEGORY_DATA
+                );
+
+                $this->status = Utils::TRANSACTION_STATUS_SUCCESS;
+            } 
+            else throw new InsufficientFundException("Insufficient balance.\nWallet balance: $userWallet->balance");
         } 
         catch (InsufficientFundException $exception) {
             $this->status = Utils::TRANSACTION_STATUS_INSUFFICIENT_BALANCE;
@@ -66,19 +89,7 @@ class DataService
             $this->status = Utils::TRANSACTION_STATUS_UNSUCCESSFUL;
         }
 
-        //create transaction
-        $transactionService = new TransactionService();
-
-        $transactionService->addTransaction([
-            'transaction_reference' => $transactionReference,
-            'amount' => $dataPlan->price,
-            'date' => now(),
-            'method' => "WALLET",
-            'description' => $dataPlan->description,
-            'payment_reference' => "pay-" . Random::generate(64),
-            'status' => $this->status,
-            'user_id' => $this->user->id
-        ]);
+       
     }
 
     public function getStatus()
@@ -88,7 +99,6 @@ class DataService
 
     public static function getAllNetworks()
     {
-
         return DataPlan::distinct('network_name')->get('network_name')->all();
     }
 
@@ -101,9 +111,9 @@ class DataService
     {
         $requestBody = [
             'network' => $networkCode,
-            'mobileno' => "07035002025",
+            'mobileno' => $phoneNumber,
             'dataplan' => $dataPlan,
-            'client_reference' => "transactionReference"
+            'client_reference' => $transactionReference
         ];
 
         $response = Http::withHeaders(["AuthorizationToken" => env('EASY_ACCESS_TOKEN'), "cache-control" => "no-cache"])

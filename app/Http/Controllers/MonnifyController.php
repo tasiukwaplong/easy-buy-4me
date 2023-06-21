@@ -51,7 +51,6 @@ class MonnifyController extends Controller
                     'date' => $responseBodyData['paidOn'],
                     'method' => $responseBodyData['paymentMethod'],
                     'description' => $responseBodyData['paymentDescription'],
-                    'payment_reference' => $responseBodyData['paymentReference'],
                     'status' => $responseBodyData['paymentStatus'],
                     'user_id' => $destinationWallet->user->id
                 ]);

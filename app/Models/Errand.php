@@ -13,6 +13,8 @@ class Errand extends Model
     protected $fillable = [
         'destination_phone',
         'dispatcher',
+        'delivery_address',
+        'delivery_fee',
         'status',
         'order_id'
     ];

@@ -12,7 +12,6 @@ class Wallet extends Model
 
     protected $fillable = [
         'balance',
-        'latest_transaction',
         'user_id',
     ];
 

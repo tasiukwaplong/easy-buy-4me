@@ -36,7 +36,7 @@
                                     <td style="color: #8492a6;">1962 Pike Street, CA 92123</td>
                                 </tr>
                                 <tr>
-                                    <td style="min-width: 130px; padding-bottom: 8px;">Date :</td>
+                                    <td style="min-width: 130px; padding-bottom: 8px;">{{ $order->status }}</td>
                                     <td style="color: #8492a6;">March, 25 2021</td>
                                 </tr>
                             </tbody>

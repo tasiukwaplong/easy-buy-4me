@@ -3,12 +3,12 @@
 namespace App\Services;
 
 use App\Models\User;
+use App\Models\whatsapp\Utils;
 
 class UserService
 {
     public function createUser(array $userInfo): User|string
     {
-
         try {
             $newUser = User::create($userInfo);
             return $newUser;
@@ -46,9 +46,9 @@ class UserService
         return ($user and $user->email and $user->first_name) ? $user : false;
     }
 
-    public function getAdmin($phone = false) {
+    public static function getAdmin($phone = false, $role = Utils::USER_ROLE_ADMIN) {
         
-        return  $phone ? User::where(['is_admin', true, 'phone' => $phone])->first() : 
-                User::where('is_admin', true)->first();
+        return  !$phone ? User::where(['role' => $role, 'phone' => $phone])->first() : 
+                User::where('role', $role)->first();
     }
 }
