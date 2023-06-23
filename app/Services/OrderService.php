@@ -221,7 +221,7 @@ class OrderService
                     //check for easy lunch subscription
                     if ($isEasylunchPackageSub) {
 
-                        $easylunchsub = EasyLunchSubscribers::where('user_id', $order->user->id)->first();
+                        $easylunchsub = EasyLunchSubscribers::where(['user_id' => $order->user->id, 'paid' => false])->whereNull('last_used')->orderByDesc('id')->first();
                         $easylunchsub->paid = true;
                         $easylunchsub->save();
 
@@ -278,19 +278,21 @@ class OrderService
 
             if ($errand and $errand->status == Utils::ORDER_STATUS_INITIATED) {
                 $errand->dispatcher = $dispatcher;
+                $errand->delivery_fee = $fee;
                 $errand->status = Utils::ORDER_STATUS_ENROUTE;
                 $errand->save();
+
+                //create event for user order placed
+                event(new OrderProcessedEvent($order, $dispatcher, $fee, $order->user->phone));
+
             }
 
             //check for easy lunch subscription
-            if (substr($order->description, 0, 18) === "Easy lunch package") {
+            elseif (substr($order->description, 0, 18) === "Easy lunch package") {
                 $easylunchsub = EasyLunchSubscribers::where('user_id', $order->user->id)->first();
                 $easylunchsub->paid = true;
                 $easylunchsub->save();
             }
-
-            //create event for user order placed
-            event(new OrderProcessedEvent($order, $dispatcher, $fee, $order->user->phone));
 
             //Update order transaction status
             $transactionService = new TransactionService();

@@ -452,6 +452,7 @@ class ResponseService
                                     if (Str::startsWith($order->description, "Easy lunch package")) {
 
                                         if ($walletService->isFundsAvailable($user, $order->total_amount)) {
+                                            
                                             //Perform checkout
                                             $order = $orderService->performCheckout($orderId, $user->wallet->id, $method);
 
@@ -558,17 +559,46 @@ class ResponseService
                             $this->responseData = $this->getUserTransactions($customerPhoneNumber, $user, $nextPage);
                         } 
 
+                        elseif(Str::startsWith($messge, 'buttons:order-delivered:')) {
+
+                            $order = Order::find(Str::replace('buttons:order-delivered:', "", $messge));
+
+                            $order->status = Utils::ORDER_STATUS_DELIVERED_DISPATCHER;
+                            $order->save();
+
+                            $this->responseData = ResponseMessages::thanksForService($customerPhoneNumber);
+
+                        }
+
+                        elseif(Str::startsWith($messge, "buttons-order-recieved:")) {
+
+                            $order = Order::find(Str::replace('buttons-order-recieved:', "", $messge));
+
+                            $order->status = Utils::ORDER_STATUS_DELIVERED;
+                            $order->save();
+
+                            $transactionService = new TransactionService();
+                            $transactionService->updateTransaction($order->transaction, ['status' => Utils::ORDER_STATUS_DELIVERED]);
+
+                            $this->responseData = ResponseMessages::thanksForPatronage($customerPhoneNumber, $order);
+                        }
+
                         elseif(Str::startsWith($messge, "dispatcher-confirm:noted:")) {
 
                             if($user->role === Utils::USER_ROLE_DISPATCH_RIDER) {
 
-                                $order = Order::find(Str::replace("dispatcher-confirm:noted:", "", $messge));
+                                $orderId = Str::replace("dispatcher-confirm:noted:", "", $messge);
+                                // dd($messge);
+
+                                $order = Order::find($orderId);
                                 
                                 //Notify Admin of receipt
                                 event(new DispatcherOrderRecievedAdminEvent($order));
 
                                 //Notify User of order on the way
                                 event(new DispatcherOrderRecievedUserEvent($order));
+
+                                $this->responseData = ResponseMessages::disptcherAcknoledged($user, $order);
 
                             }
                         }
@@ -876,10 +906,17 @@ class ResponseService
 
             } 
 
-            elseif(in_array($eventType, [Utils::ADMIN_PROCESS_USER_ORDER_DISPATCHER_RECIEVED_USER, Utils::ADMIN_PROCESS_USER_ORDER_DISPATCHER_RECIEVED_ADMIN])) {
+            elseif($eventType === Utils::ADMIN_PROCESS_USER_ORDER_DISPATCHER_RECIEVED_ADMIN) {
 
                 $order = $this->data['order'];
-                $this->responseData = ResponseMessages::orderOnTheWayNotifyer($order, $eventType);
+                $this->responseData = ResponseMessages::orderOnTheWayNotifyerAdmin($order);
+                
+            }
+
+            elseif($eventType === Utils::ADMIN_PROCESS_USER_ORDER_DISPATCHER_RECIEVED_USER) {
+
+                $order = $this->data['order'];
+                $this->responseData = ResponseMessages::orderOnTheWayNotifyer($order);
                 
             }
             
@@ -952,6 +989,7 @@ class ResponseService
                
                if($dispatcher) {
 
+
                 $this->responseData = ResponseMessages::messageDispatcher(
                     $order,
                     $fee,
@@ -980,8 +1018,9 @@ class ResponseService
             ->withHeaders(['Content-type' => 'application/json'])
             ->post("https://graph.facebook.com/$whatsApiVersion/$whatsAppId/messages", $this->responseData);
 
-    }
 
+    }
+    
     private function cleanMessage($interactiveMessageId)
     {
         return substr($interactiveMessageId, 1, strlen($interactiveMessageId) - 2);

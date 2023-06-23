@@ -35,9 +35,8 @@ class TransactionService {
         $transaction->update($updates);
         $orderInvoice = $transaction->orderInvoice;
 
-        $orderInvoice->update([
-            'status' => $transaction->status,
-        ]);
+        $orderInvoice->status = $transaction->status;
+        $orderInvoice->save();
         
         return $transaction;
     }
