@@ -48,7 +48,7 @@ class UserService
 
     public static function getAdmin($phone = false, $role = Utils::USER_ROLE_ADMIN) {
         
-        return  !$phone ? User::where(['role' => $role, 'phone' => $phone])->first() : 
+        return  $phone ? User::where(['role' => $role, 'phone' => $phone])->first() : 
                 User::where('role', $role)->first();
     }
 }

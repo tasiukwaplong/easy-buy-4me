@@ -27,6 +27,52 @@ use Illuminate\Support\Str;
 class ResponseMessages
 {
 
+    public static function thanksForService($customerPhoneNumber) {
+        return self::textMessage('Thanks for being part of the team', $customerPhoneNumber, false);
+    }
+
+    public static function thanksForPatronage($customerPhoneNumber, $order) {
+        $header = ["type" => "document", "document" => ["link" => $order->transaction->orderInvoice->url]];
+
+        $action = ['buttons' => array(
+            [
+                "type" => Utils::REPLY,
+                "reply" => [
+                    "id" => Utils::BUTTONS_GO_TO_DASHBOARD,
+                    "title" => "MENU"
+                ]
+            ]
+        )];
+
+        $interactive = new Interactive(Utils::BUTTON, $header, ['text' => "Thanks for believing in me. I hope to run errands for you next time"], ['text' => "@easyBuy4me"], $action);
+
+        $interactiveSendMessage = new InteractiveSendMessage($customerPhoneNumber, Utils::INTERACTIVE, $interactive);
+
+        return $interactiveSendMessage;
+    }
+
+    public static function disptcherAcknoledged($user, $order) {
+
+        $header = new Header(Utils::TEXT, "Acknoledgment");
+        $body = "Acknoledgement sent\nORDER ID:$order->order_id\n\nKindly tap *DELIVERED* when delivery is completed";
+
+        $action = ['buttons' => array(
+            [
+                "type" => Utils::REPLY,
+                "reply" => [
+                    "id" => "[buttons:order-delivered:$order->id]",
+                    "title" => "DELIVERED"
+                ]
+            ]
+        )];
+
+        $interactive = new Interactive(Utils::BUTTON, $header, ['text' => $body], ['text' => "@easyBuy4me"], $action);
+
+        $interactiveSendMessage = new InteractiveSendMessage($user->phone, Utils::INTERACTIVE, $interactive);
+
+        return $interactiveSendMessage;
+    }
+
     public static function noPendingOrder($customerPhoneNumber) {
 
         $header = new Header(Utils::TEXT, "Error!");
@@ -75,48 +121,44 @@ class ResponseMessages
          return $interactiveSendMessage;
     }
 
-    public static function orderOnTheWayNotifyer($order, $eventType) {
+    public static function orderOnTheWayNotifyerAdmin($order) {
+        $admin = UserService::getAdmin();
+        return self::textMessage("Order with ID: $order->order_id NOTED!", $admin->phone, false);
+    }
+
+    public static function orderOnTheWayNotifyer($order)
+    {
 
         $body = "";
-        $phone = "";
 
-        switch ($eventType) {
+        $errand = Errand::where('order_id', $order->id)->first();
 
-            case Utils::ADMIN_PROCESS_USER_ORDER_DISPATCHER_RECIEVED_ADMIN:
+        $orderSummary = OrderService::orderSummary($order);
+        $body = "*Order Dispatched*\n\nYour order with the following details has been dispatched and is on the way\n\n$orderSummary\nDelivery fee: $errand->delivery_fee\nDispatcher Phone:$errand->dispatcher\n\nTap *RECEIVED* when you recieve this order";
 
-                $body = "Order with ID: $order->order_id *NOTED*";
-                $phone = UserService::getAdmin();
+        $header = ["type" => "document", "document" => ["link" => $order->transaction->orderInvoice->url]];
 
-                return self::textMessage($body, $phone, false);
+        $action = ['buttons' => array(
+            [
+                "type" => Utils::REPLY,
+                "reply" => [
+                    "id" => "[buttons-order-recieved:$order->id]",
+                    "title" => "RECEIVED"
+                ]
+                ],
+            [
+                "type" => Utils::REPLY,
+                "reply" => [
+                    "id" => Utils::BUTTONS_GO_TO_DASHBOARD,
+                    "title" => "GO TO MENU"
+                ]
+            ]
+        )];
 
-            case Utils::ADMIN_PROCESS_USER_ORDER_DISPATCHER_RECIEVED_ADMIN:
+        $interactive = new Interactive(Utils::BUTTON, $header, ['text' => $body], ['text' => "@easyBuy4me"], $action);
 
-                $errand = Errand::where('order_id', $order->id)->first();
-
-                $orderSummary = OrderService::orderSummary($order);
-                $body = "*Order Dispatched*\n\nOrder with the following details has been dispatched and is on the way\n\n$orderSummary\n\nDispatcher Phone: $errand->dispatcher";
-
-                $header = ["type" => "document", "document" => ["link" => $order->transaction->orderInvoice->url]];
-
-                $action = ['buttons' => array(
-                    [
-                        "type" => Utils::REPLY,
-                        "reply" => [
-                            "id" => Utils::BUTTONS_GO_TO_DASHBOARD,
-                            "title" => "GO TO MENU"
-                        ]
-                    ]
-                )];
-
-                $interactive = new Interactive(Utils::BUTTON, $header, ['text' => $body], ['text' => "@easyBuy4me"], $action);
-
-                $interactiveSendMessage = new InteractiveSendMessage($order->user->phone, Utils::INTERACTIVE, $interactive);
-                return $interactiveSendMessage;
-                
-            default:
-                # code...
-                break;
-        }
+        $interactiveSendMessage = new InteractiveSendMessage($order->user->phone, Utils::INTERACTIVE, $interactive);
+        return $interactiveSendMessage;
     }
 
     public static function messageDispatcher($order, $fee, $location, $contact, $dispatcher) {
@@ -965,7 +1007,7 @@ class ResponseMessages
                 $orderSummary .= "*Customer phone:* $phone \n*Payment Method:* $method\n";
                 $orderSummary .= "*Delivery address:* $deliveryAddress\n\n";
 
-                $orderSummary .= $method === Utils::PAYMENT_METHOD_EASY_LUNCH ? "" : "Kindly confirm and reply with a dispatcher phone number in the format \n*process-order-OREDER_ID:FEE:DISPATCHER_PHONE*";
+                $orderSummary .= "Kindly confirm and reply with a dispatcher phone number and delivery fee in the format \n*process-order-$order->order_id:[DISPATCH_RIDER_PHONE]:[FEE]*";
 
                 $admin = User::where('role', Utils::USER_ROLE_SUPER_ADMIN)->first();
                 return self::textMessage($orderSummary, $admin->phone, false);

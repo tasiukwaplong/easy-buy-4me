@@ -94,6 +94,7 @@ class Utils
     //Order statuses
     public const ORDER_STATUS_PROCESSING = 1;
     public const ORDER_STATUS_PROCESSED = 4;
+    public const ORDER_STATUS_DELIVERED_DISPATCHER = 5;
     public const ORDER_STATUS_CANCELLED = -1;
     public const ORDER_STATUS_DELIVERED = 0;
     public const ORDER_STATUS_INITIATED = 2;

@@ -28,6 +28,7 @@ class DispatcherOrderRecievedAdminListener
             'order' => $event->order,
         ]);
 
+
         $responseService->processRequest();
         $responseService->sendResponse();
     }
