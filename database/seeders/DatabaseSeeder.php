@@ -164,153 +164,104 @@ class DatabaseSeeder extends Seeder
 
         //Create MTN Data plans
         DataPlan::create([
-            'name' => "500MB SME",
+            'name' => "500MB",
             'network_name' => "MTN", 
             'network_code' => "01", 
             'cost' => 109, 
             'price' => $price,
             'dataplan' => 50, 
-            'description' => "500MB (SME) - N$price 30days"
+            'description' => "500MB - N$price 30days"
         ]);
 
         $cost = 217;
         $price = round($cost + doubleval(env('DATA_PLAN_PROFIT', 20)));
         DataPlan::create([
-            'name' => "1GB SME",
+            'name' => "1GB",
             'network_name' => "MTN", 
             'network_code' => "01", 
             'cost' => 217, 
             'price' => $price,
             'dataplan' => 51, 
-            'description' => "1GB (SME) - N$price 30days"
+            'description' => "1GB - N$price 30days"
         ]);
 
         $cost = 434;
         $price = round($cost + doubleval(env('DATA_PLAN_PROFIT', 20)));
         DataPlan::create([
-            'name' => "2GB SME",
+            'name' => "2GB",
             'network_name' => "MTN", 
             'network_code' => "01", 
             'cost' => 434, 
             'price' => $price,
             'dataplan' => 52, 
-            'description' => "2GB (SME) - N$price 30days"
+            'description' => "2GB - N$price 30days"
         ]);
 
         $cost = 651;
         $price = round($cost + doubleval(env('DATA_PLAN_PROFIT', 20)));
         DataPlan::create([
-            'name' => "3GB SME",
+            'name' => "3GB",
             'network_name' => "MTN", 
             'network_code' => "01", 
             'cost' => 651, 
             'price' => $price,
             'dataplan' => 53, 
-            'description' => "3GB (SME) - N$price 30days"
+            'description' => "3GB - N$price 30days"
         ]);
 
         //Glo Data plans
-
-        $cost = 225;
-        $price = round($cost + doubleval(env('DATA_PLAN_PROFIT', 20)));
-        DataPlan::create([
-            'name' => "1GB CG",
-            'network_name' => "GLO", 
-            'network_code' => "02", 
-            'cost' => 225, 
-            'price' => $price,
-            'dataplan' => 160, 
-            'description' => "1GB (CG) - N$price 30days"
-        ]);
-
-        $cost = 450;
-        $price = round($cost + doubleval(env('DATA_PLAN_PROFIT', 20)));
-
-        DataPlan::create([
-            'name' => "2GB CG",
-            'network_name' => "GLO", 
-            'network_code' => "02", 
-            'cost' => 450, 
-            'price' => $price,
-            'dataplan' => 161, 
-            'description' => "2GB (CG) - N$price 30days"
-        ]);
-
-        $cost = 53;
-        $price = round($cost + doubleval(env('DATA_PLAN_PROFIT', 20)));
-        DataPlan::create([
-            'name' => "200MB CG",
-            'network_name' => "GLO", 
-            'network_code' => "02", 
-            'cost' => 53, 
-            'price' => $price,
-            'dataplan' => 158, 
-            'description' => "158 => 200MB (CG) - N$price 14days"
-        ]);
 
         $cost = 470.25;
         $price = round($cost + doubleval(env('DATA_PLAN_PROFIT', 20)));
 
         DataPlan::create([
-            'name' => "1.35GB Direct",
+            'name' => "1.35GB",
             'network_name' => "GLO", 
             'network_code' => "02", 
             'cost' => 470.25, 
             'price' => $price,
             'dataplan' => 59, 
-            'description' => "1.35GB (Direct) - N$price 14days"
+            'description' => "1.35GB - N$price 14days"
         ]);
 
 
         //Adirtel data plans
 
-        $cost = 220;
-        $price = round($cost + doubleval(env('DATA_PLAN_PROFIT', 20)));
-        DataPlan::create([
-            'name' => "1GB CG",
-            'network_name' => "AIRTEL", 
-            'network_code' => "03", 
-            'cost' => 220, 
-            'price' => $price,
-            'dataplan' => 107, 
-            'description' => "1GB (CG) - N$price 30days"
-        ]);
-
         $cost = 1069.2;
         $price = round($cost + doubleval(env('DATA_PLAN_PROFIT', 20)));
         DataPlan::create([
-            'name' => "2GB Direct",
+            'name' => "2GB",
             'network_name' => "AIRTEL", 
             'network_code' => "03", 
             'cost' => 1069.2, 
             'price' => $price,
             'dataplan' => 68, 
-            'description' => "2GB (Direct) - N$price 30days"
+            'description' => "2GB - N$price 30days"
         ]);
 
         $cost = 150;
         $price = round($cost + doubleval(env('DATA_PLAN_PROFIT', 20)));
         //9Mobile data plans
         DataPlan::create([
-            'name' => "1GB SME",
+            'name' => "1GB",
             'network_name' => "9MOBILE", 
             'network_code' => "04", 
             'cost' => 150, 
             'price' => $price,
             'dataplan' => 128, 
-            'description' => "1GB (SME) - N$price 30days"
+            'description' => "1GB - N$price 30days"
         ]);
 
         $cost = 300;
         $price = round($cost + doubleval(env('DATA_PLAN_PROFIT', 20)));
         DataPlan::create([
-            'name' => "2GB SME",
+            'name' => "2GB",
             'network_name' => "9MOBILE", 
             'network_code' => "04", 
             'cost' => 300, 
             'price' => $price,
             'dataplan' => 130, 
-            'description' => "2GB (SME) - N$price 30days"
+            'description' => "2GB - N$price 30days"
         ]);
     }
 }

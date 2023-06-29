@@ -18,13 +18,17 @@ class OrderInvoice extends Component
      public string $transactionStatus;
      public $orderedItems;
      public $orderStatus;
+     public $errand;
+     public $paymentMethod;
 
-    public function __construct(Order $order, string $transactionStatus, $orderStatus, $orderedItems)
+    public function __construct(Order $order, string $transactionStatus, $orderStatus, $orderedItems, $errand, $paymentMethod)
     {
         $this->order = $order;
         $this->transactionStatus = $transactionStatus;
         $this->orderedItems = $orderedItems;
         $this->orderStatus = $orderStatus;
+        $this->paymentMethod = $paymentMethod;
+        $this->errand = $errand;
     }
 
     /**

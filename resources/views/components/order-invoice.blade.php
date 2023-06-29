@@ -44,6 +44,11 @@
                                 </tr>
 
                                 <tr>
+                                    <td style="min-width: 130px; padding-bottom: 8px;">Payment Method:</td>
+                                    <td style="color: #8492a6;"><strong>{{ $paymentMethod }}</strong></td>
+                                </tr>
+
+                                <tr>
                                     <td style="min-width: 130px; padding-bottom: 8px;">Payment Status:</td>
                                     <td style="color: #8492a6;"><strong>{{ $transactionStatus }}</strong></td>
                                 </tr>
@@ -122,20 +127,35 @@
                                                     N{{ $orderItem->quantity * $orderItem->item->item_price }}</td>
                                             </tr>
                                         @endforeach
-
                                     @endif
 
-
-
+                                    @if ($errand)
+                                        <tr style="overflow-x: hidden;">
+                                            <td colspan="4" scope="row"
+                                                style="text-align: left; padding: 12px; border-top: 1px solid #dee2e6;">
+                                                Delivery Fee
+                                            </td>
+                                            <td colspan="1"
+                                                style="text-align: end; padding: 12px; border-top: 1px solid #dee2e6;">
+                                                N{{ $errand->delivery_fee }}</td>
+                                        </tr>
+                                    @endif
 
                                     <tr
                                         style="background-color: rgba(77, 69, 230, 0.05); color: #980f08; overflow-x: hidden;">
                                         <th scope="row"
                                             style="text-align: left; padding: 12px; border-top: 1px solid rgba(77, 69, 230, 0.05);">
                                             Total</th>
-                                        <td colspan="4"
-                                            style="text-align: end; font-weight: 700; font-size: 18px; padding: 12px; border-top: 1px solid rgba(77, 69, 230, 0.05);">
-                                            N{{ $order->total_amount }}</td>
+                                            
+                                        @if ($errand)
+                                            <td colspan="4"
+                                                style="text-align: end; font-weight: 700; font-size: 18px; padding: 12px; border-top: 1px solid rgba(77, 69, 230, 0.05);">
+                                                N{{ $order->total_amount + $errand->delivery_fee }}</td>
+                                        @else
+                                            <td colspan="4"
+                                                style="text-align: end; font-weight: 700; font-size: 18px; padding: 12px; border-top: 1px solid rgba(77, 69, 230, 0.05);">
+                                                N{{ $order->total_amount }}</td>
+                                        @endif
                                     </tr>
                                 </tbody>
                             </table>

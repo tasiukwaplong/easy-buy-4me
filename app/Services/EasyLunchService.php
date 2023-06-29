@@ -4,10 +4,12 @@ namespace App\Services;
 
 use App\Models\EasyLunch;
 use App\Models\EasyLunchSubscribers;
+use App\Models\Order;
 use App\Models\User;
 use App\Models\whatsapp\messages\partials\interactive\Row;
 use App\Models\whatsapp\messages\partials\interactive\Section;
 use App\Models\whatsapp\Utils;
+use Illuminate\Database\Eloquent\Collection;
 
 class EasyLunchService
 {
@@ -69,9 +71,6 @@ class EasyLunchService
             $now = date("Y-m-d");
             $lastUsed = date("Y-m-d", strtotime($easyLunchSubscriber->last_used));
 
-            // dd($now, $lastUsed);
-
-
             return  $easyLunchSubscriber and
                 $easyLunchSubscriber->orders_remaining > 0 and
                 $easyLunchSubscriber->paid and
@@ -81,7 +80,14 @@ class EasyLunchService
         return false;
     }
 
-    public function getSubscriptions(User $user)
+
+    /**
+     * Function to get easylunch subscriptions for user
+     *
+     * @param User $user
+     * @return Collection
+     */
+    public function getSubscriptions(User $user) : Collection
     {
         //Check if this user hase easylunch subscription
         $easyLunchSubscriptions = EasyLunchSubscribers::where('user_id', $user->id)->get();
@@ -91,18 +97,6 @@ class EasyLunchService
         });
     }
 
-    public function getItems(User $user) {
-
-        return EasyLunchSubscribers::where(['user_id' => $user->id, 'paid' => true])->get()
-            ->filter(function ($sub) {
-                return $sub->orders_remaining > 0;
-            })->map(function ($r) {
-                return EasyLunch::find($r->easy_lunch_id);
-            })->map(function ($lunch) {
-                return $lunch->item;
-            });
-
-    }
 
     public static function getEasyLunchItems(EasyLunch $easyLunch)
     {
@@ -224,5 +218,24 @@ class EasyLunchService
     public function isUsed(User $user, EasyLunch $easyLunch) : bool {
         $today = date('Y-m-d');
         return $easyLunch->subscription->last_used === $today;
+    }
+
+    public static function isEasyLunchSub(Order $order) {
+        return substr($order->description, 0, 18) === "Easy lunch package";
+    }
+
+    public static function useEasyLunchSub(User $user, Order $order, $paymentMethod) {
+
+        $easylunchsub = EasyLunchSubscribers::where('user_id', $user->id)->first();
+        $easylunchsub->orders_remaining -= 1;
+        $easylunchsub->last_used = date("Y-m-d");
+        $easylunchsub->last_order = $order->order_id;
+        $easylunchsub->save();
+
+        $order->status = Utils::ORDER_STATUS_PROCESSING;
+        $transactionService = new TransactionService();
+        $transactionService->updateTransaction($order->transaction, ['status' => Utils::TRANSACTION_STATUS_SUCCESS, 'method' => $paymentMethod]);            
+
+        return $order;
     }
 }

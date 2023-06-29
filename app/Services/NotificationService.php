@@ -11,7 +11,9 @@ class NotificationService
 {
 
     public static function sendEmail($recipient, $email) {
-        $response = Http::post(env('GSUITE_URL'), ['sk' => env('GSUITE_SECRET_KEY'), $recipient, "Message", $email]);
+
+        // dd(env('EMAIL_SK'));
+        $response = Http::post(env('GSUITE_URL'), ['sk' => env('EMAIL_SK'), 'email' => $recipient, "body" => $email]);
         if($response->successful()) {
             dd($response->json());
         }

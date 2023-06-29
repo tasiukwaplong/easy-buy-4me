@@ -103,8 +103,6 @@ class OrderService
             $order->total_amount += $item->item_price;
             $order->save();
 
-            // dd($currentAmount, $order->total_amount);
-
             $transactionService = new TransactionService();
             $transactionService->updateTransaction($order->transaction, ['amount' => $order->total_amount, 'description' => $order->description]);
 
@@ -127,6 +125,7 @@ class OrderService
     public function cancelOrder($orderId)
     {
         $order = Order::find($orderId);
+
         if ($order) {
             $order->status = Utils::ORDER_STATUS_CANCELLED;
             $order->save();
@@ -146,7 +145,108 @@ class OrderService
         return Order::destroy($order->id);
     }
 
-    public function performCheckout($orderId, $walletId, $paymentMethod)
+    public function performCheckout($orderId, $walletId, $paymentMethod) {
+        //Todo: 1. Check if this order is for easylunch subscription package
+
+        $order = Order::find($orderId);
+        $user = $order->user;
+        $errand = Errand::where('order_id', $orderId)->first();
+        $isEasylunchPackageSub = EasyLunchService::isEasyLunchSub($order);
+        
+
+        if ((($errand and ($errand->status == Utils::ORDER_STATUS_INITIATED)) or !$errand ) and $order) {
+                 
+                 //Todo: 2. Check for payment method
+                 //Todo: 2.1. Check for easy lunch payment method
+             if ($walletId === Utils::PAYMENT_METHOD_EASY_LUNCH) {
+                $order = EasyLunchService::useEasyLunchSub($user, $order, $paymentMethod);
+            } 
+
+                //Todo: 2.2 Check for online, on delivery and transfer methods
+            elseif (in_array($walletId, [
+                Utils::PAYMENT_METHOD_ON_DELIVERY,
+                Utils::PAYMENT_METHOD_ONLINE,
+                Utils::PAYMENT_METHOD_TRANSFER
+            ])) {
+
+                $order->status = Utils::ORDER_STATUS_PROCESSING;
+                $paymentMethod = $walletId;
+
+                $transactionService = new TransactionService();
+                $transactionService->updateTransaction($order->transaction, ['status' => Utils::TRANSACTION_STATUS_PENDING, 'method' => $paymentMethod]);
+            }
+            else {
+
+                //Check if user has the funds
+
+                $walletService = new WalletService();
+
+                $fundsAvailable = $walletService->isFundsAvailable($user, $order->total_amount);
+
+                if ($fundsAvailable) {
+
+                    $order->status = Utils::ORDER_STATUS_PROCESSING;
+
+                    //check for easy lunch subscription
+                    if ($isEasylunchPackageSub) {
+
+                        $easylunchsub = EasyLunchSubscribers::where(['user_id' => $order->user->id, 'paid' => false])->whereNull('last_used')->orderByDesc('id')->first();
+                        $easylunchsub->paid = true;
+                        $easylunchsub->save();
+
+                        $order->status = Utils::ORDER_STATUS_DELIVERED;
+                    }
+
+                    $transactionService = new TransactionService();
+                    $transactionService->updateTransaction($order->transaction, ['status' => Utils::TRANSACTION_STATUS_PENDING, 'method' => $paymentMethod]);            
+                }
+
+
+            }
+
+            $order->save();
+
+            //Attach invoice
+            $orderInvoice = $order->transaction->orderInvoice;
+            $orderInvoice->save();
+    
+            return  $order;
+
+        }
+    
+        //Todo: 2.3 Check for wallet payment 
+
+    }
+
+    public function orderAccepted(Order $order, $totalAmount) {
+
+        $order->status = Utils::ORDER_STATUS_ENROUTE;
+        $orderTransaction = $order->transaction;
+
+        $walletService = new WalletService();
+        $transactionService = new TransactionService();
+
+        if($orderTransaction->method === Utils::PAYMENT_METHOD_WALLET) {
+
+            $walletService->alterBalance($totalAmount, $order->user->wallet, false);
+            $transactionService->updateTransaction($orderTransaction, array('status' => Utils::TRANSACTION_STATUS_SUCCESS));
+            
+        }
+        else {
+            $transactionService->updateTransaction($orderTransaction, array('status' => Utils::TRANSACTION_STATUS_PENDING));
+        }
+
+        $orderInvoice = $orderTransaction->orderInvoice;
+        $orderInvoice->url = self::getOrderInvoice($order);
+
+        $orderInvoice->save();
+        $order->save();
+
+        return $order;
+
+    }
+
+    public function performCheckoutOld($orderId, $walletId, $paymentMethod)
     {
         $order = Order::find($orderId);
         $user = $order->user;
@@ -154,22 +254,11 @@ class OrderService
 
         $errand = Errand::where('order_id', $orderId)->first();
 
-        if ((($errand and ($errand->status == Utils::ORDER_STATUS_INITIATED)) or !$errand)  and $order) {
+        if ((($errand and ($errand->status == Utils::ORDER_STATUS_INITIATED)) or !$errand ) and $order) {
 
             //if this is an easy lunch order
             if ($walletId === Utils::PAYMENT_METHOD_EASY_LUNCH) {
-
-                $easylunchsub = EasyLunchSubscribers::where('user_id', $user->id)->first();
-                $easylunchsub->orders_remaining -= 1;
-                $easylunchsub->last_used = date("Y-m-d");
-                $easylunchsub->last_order = $order->order_id;
-                $easylunchsub->save();
-
-                $order->status = Utils::ORDER_STATUS_PROCESSING;
-                $transactionService = new TransactionService();
-                $transactionService->updateTransaction($order->transaction, ['status' => Utils::TRANSACTION_STATUS_SUCCESS, 'method' => $paymentMethod]);            
-
-
+                $order = EasyLunchService::useEasyLunchSub($user, $order, $paymentMethod);
             } 
             
             elseif (in_array($walletId, [
@@ -263,7 +352,7 @@ class OrderService
         return  $order;
     }
 
-    public function processOrder($orderId, $dispatcher, $fee)
+    public function processOrder($orderId, $dispatcher)
     {
 
         $order = Order::where('order_id', $orderId)->first();
@@ -278,13 +367,11 @@ class OrderService
 
             if ($errand and $errand->status == Utils::ORDER_STATUS_INITIATED) {
                 $errand->dispatcher = $dispatcher;
-                $errand->delivery_fee = $fee;
                 $errand->status = Utils::ORDER_STATUS_ENROUTE;
                 $errand->save();
 
-                //create event for user order placed
-                event(new OrderProcessedEvent($order, $dispatcher, $fee, $order->user->phone));
-
+                //create event for user order enroute
+                event(new OrderProcessedEvent($order, $dispatcher, $errand->delivery_fee, $order->user->phone));
             }
 
             //check for easy lunch subscription
@@ -313,7 +400,20 @@ class OrderService
             $orderSummary = $orderSummary . "$i->item_name - N$i->item_price per $i->unit_name ($orI->quantity$i->unit_name)\n";
         }
 
-        return strlen($orderSummary) > 1 ? $orderSummary . "\nTotal Amount: *$order->total_amount*\n\n" : $order->description;
+        return strlen($orderSummary) > 1 ? $orderSummary . "\nOrder Total: *$order->total_amount*\n\n" : $order->description;
+    }
+
+    public static function orderItems(Order $order)
+    {
+        $orderSummary = "";
+
+        foreach (OrderedItem::where('order_id', $order->id)->get() as $orI) {
+            $i = Item::find($orI->item_id);
+            $vendor = $i->vendor->name;
+            $orderSummary .= "$i->item_name ($vendor) - $orI->quantity$i->unit_name\n";
+        }
+
+        return "$orderSummary";
     }
 
     public function getUserPendingOrder($user)
@@ -344,63 +444,6 @@ class OrderService
         })->all();
     }
 
-    public function findEasyLunchOrder(User $user)
-    {
-
-        //Check if this user has a subscription that is not yet paid for
-        $easylunchsub = EasyLunchSubscribers::where(["user_id" => $user->id, 'paid' => false])->first();
-
-        if ($easylunchsub) {
-
-            $order = Order::where('user_id', $user->id)
-                ->where('description', 'LIKE', "Easy lunch package%")
-                ->first();
-
-            if ($order) {
-
-                $expiryTime = new DateTime($order->created_at);
-                $expiryTime->modify("+1 hour");
-                $now = new DateTime(now());
-
-                if ($now < $expiryTime) {
-                    return $order;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    public function addEasyLunchOrder(User $user, $description, $amount): Order
-    {
-
-        $order = Order::where('user_id', $user->id)
-            ->where('description', 'LIKE', "Easy lunch package%")
-            ->first();
-
-        if ($order) {
-
-            $order->description = $description;
-            $order->total_amount = $amount;
-            $order->save();
-        } 
-        
-        else {
-
-            $order = Order::create([
-                'order_id' => strtoupper(Random::generate(35)),
-                'description' => $description,
-                'total_amount' => $amount,
-                'status' => Utils::ORDER_STATUS_INITIATED,
-                'user_id' => $user->id
-            ]);
-        }
-
-        $this->addTransaction($user, $order, "EASY LUNCH SUBSCRIPTION");
-
-        return $order;
-    }
-
     public function addTransaction(User $user, Order $order, $type) {
          //Create transaction for this service
          $transactionService = new TransactionService();
@@ -421,14 +464,16 @@ class OrderService
         
         $transactionStatus = strtoupper(Utils::TRANSACTION_STATUS[$order->transaction->status]);
         $orderStatus = Utils::ORDER_STATUS_MESSAGE[$order->status];
+        $errand = $order->errand;
+        $paymentMethod = $order->transaction->method;
         
-        $fileName = "invoice-$order->order_id.pdf";
+        $fileName = date_timestamp_get(now()) . ".pdf";
 
         $orderedItems = $order->orderedItems;
         
         $del = Storage::disk(env('STORAGE_LOCATION'))->delete("/easybuy4me/order/invoice/$fileName");
 
-        $pdf = Pdf::loadView('components.order-invoice', compact(['order', 'transactionStatus', 'orderStatus', 'orderedItems']));
+        $pdf = Pdf::loadView('components.order-invoice', compact(['order', 'transactionStatus', 'orderStatus', 'orderedItems', 'errand', 'paymentMethod']));
         $pdf->save($basePath . $fileName, env('STORAGE_LOCATION'));
 
         return "https://" . env('AWS_BUCKET') . ".s3.amazonaws.com/$basePath" . $fileName;

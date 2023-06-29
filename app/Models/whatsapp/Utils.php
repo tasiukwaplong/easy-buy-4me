@@ -18,6 +18,8 @@ class Utils
     public const ADMIN_PROCESS_USER_ORDER_DISPATCHER_RECIEVED_USER = "admin-process-order-dispatcher-recieved-user";
     public const ADMIN_WALLET_EVENTS = "admin-wallet-events";
     public const ADMIN_USER_ORDER_NOTIFY = "admin-user-order-notify";
+    public const ADMIN_USER_ORDER_CONFIRM = "admin-user-order-confirm";
+    public const ADMIN_USER_ORDER_ACCEPTED = "admin-user-order-accepted";
 
     //Possible origins of requests
     public const ORIGIN_WHATSAPP = "whatsapp";
@@ -157,12 +159,14 @@ class Utils
     public const TRANSACTION_STATUS_INSUFFICIENT_BALANCE = -1;
     public const TRANSACTION_STATUS_UNSUCCESSFUL = 1;
     public const TRANSACTION_STATUS_PENDING = 2;
+    public const TRANSACTION_STATUS_ENROUTE = 4;
 
     public const TRANSACTION_STATUS = [
         self::TRANSACTION_STATUS_INSUFFICIENT_BALANCE => "Unsuccessful",
         self::TRANSACTION_STATUS_SUCCESS => "Success",
         self::TRANSACTION_STATUS_UNSUCCESSFUL => "Unsuccessful",
         self::TRANSACTION_STATUS_PENDING => "Pending",
+        self::TRANSACTION_STATUS_ENROUTE => "Pending",
     ];
 
     //Data purchase status
@@ -179,6 +183,23 @@ class Utils
     public const PAYMENT_METHOD_WALLET = "WALLET";
     public const PAYMENT_METHOD_ON_DELIVERY = "ON DELIVERY";
     public const PAYMENT_METHOD_ONLINE = "ONLINE";
+
+    public const EASY_BUY_4_ME_FOOTER = "@easybuy4me";
+
+    //Regular Expressions
+    public const DATA_PURCHASE_INPUT = "/(mtn|9mobile|airtel|glo|\d+[A-Za-z]{2}| \d{11})/i";
+    public const DATA_PURCHASE_NETWORK_NAME = '/^(mtn|9mobile|airtel|glo|\d+[A-Za-z]+)/';
+    public const AIRTIME_PURCHASE_INPUT_MATCH = '/^\d{11} (?:[1-9]\d{2,}|[1-9]\d{1,}|[1-9])$/';
+    public const AIRTIME_PURCHASE_INPUT_SPLITTER = '/(\d{11}) | (?:[1-9]\d{3,}|[1-9]\d{1,}|[1-9])/';
+
+    public const NETWORK_CODES = [
+        "MTN" => ["0803", "0806", "0703", "0706", "0813", "0816", "0810", "0814", "0903", "0906", "0913", "0916", "0702", "0702", "0704"],
+        "GLO" => ["0805", "0807", "0705", "0815", "0811", "0905", "0915"],
+        "9MOBILE" => ["0809", "0818", "0817", "0909", "0908"],
+        "AIRTEL" => ["0802", "0808", "0708", "0812", "0701", "0902", "0901", "0904", "0907", "0912"],
+    ];
+
+    public const AIRTIME_INVALID_AMOUNT = -5;
 
 
 }
