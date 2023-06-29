@@ -15,7 +15,6 @@ use Illuminate\Support\Str;
 
 class DataService
 {
-
     private int $status;
     private User $user;
 
@@ -24,6 +23,12 @@ class DataService
         $this->user = $user;
     }
 
+    /**
+     * Function to fetch a particular data plan
+     *
+     * @param array $attributes
+     * @return string|DataPlan
+     */
     public static function get(array $attributes)
     {
         $thisDataPlan = DataPlan::where($attributes)->first();
@@ -42,9 +47,12 @@ class DataService
 
             if ($walletService->isFundsAvailable($this->user, $dataPlan->price)) {
 
+                $destinationPhone = Str::replace("+234", 0, $destinationPhone);
+
                 //send data here, may throw exception
                 $response = $this->sendDataRequest($dataPlan->network_code, $destinationPhone, $dataPlan->dataplan, $transactionReference);
 
+                // dd($response);
                 if (Str::startsWith($response['success'], 'false') and $response['message'] == "Insufficient Balance") {
 
                     //Notify admin that wallet is low
@@ -66,10 +74,10 @@ class DataService
                 //create transaction
                 $transactionService = new TransactionService();
                 $transactionService->addTransaction([
-                    'transaction_reference' => $transactionReference,
+                    'transaction_reference' =>$response['reference_no'],
                     'amount' => $dataPlan->price,
                     'date' => now(),
-                    'order_id' => $order->order_id,
+                    'order_id' => $order->id,
                     'method' => Utils::PAYMENT_METHOD_WALLET,
                     'description' => $dataPlan->description,
                     'status' => $this->status,
@@ -99,12 +107,22 @@ class DataService
 
     public static function getAllNetworks()
     {
-        return DataPlan::distinct('network_name')->get('network_name')->all();
+        return DataPlan::distinct('network_name')->get('network_name');
     }
 
-    public static function fetchDataPlans(string $networkName)
+    public static function fetchDataPlans()
     {
-        return DataPlan::where("network_name", $networkName)->get();
+        $dataPlans = DataPlan::orderBy('network_name')->get();;
+        $networkNames = self::getAllNetworks();
+
+        $groupedDataPlans = $networkNames->map(function ($networkName) use ($dataPlans) {
+            $networkDataPlans = $dataPlans->filter(function ($dataPlan) use ($networkName) {
+                return $dataPlan->network_name == $networkName->network_name;
+            });
+            return array($networkName->network_name => $networkDataPlans);
+        }); 
+
+        return $groupedDataPlans;
     }
 
     private function sendDataRequest($networkCode, $phoneNumber, $dataPlan, $transactionReference)

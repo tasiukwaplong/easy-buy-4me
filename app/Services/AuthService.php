@@ -82,7 +82,8 @@ class AuthService
     public function verifyCode(string $phone, string $code) : bool
     {
         $userService = new UserService();
-
+        
+        //Only try to verify for non - registered users
         if (!$userService->isRegisteredCustomer($phone)) {
 
             $user = $userService->getUserByPhoneNumber($phone);

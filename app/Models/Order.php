@@ -33,7 +33,7 @@ class Order extends Model
         return $this->hasOne(Transaction::class);
     }
 
-    public function errand() : BelongsTo {
-        return $this->belongsTo(Errand::class);
+    public function errand() : HasOne {
+        return $this->hasOne(Errand::class);
     }
 }

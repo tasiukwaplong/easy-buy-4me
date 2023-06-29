@@ -8,6 +8,8 @@ use App\Events\OrderAssignedToDispatcherEvent;
 use App\Events\OrderPlacedEvent;
 use App\Events\OrderProcessedEvent;
 use App\Events\RegistrationCompleteEvent;
+use App\Events\UserOrderPlaceConfirmEvent;
+use App\Events\UserOrderPlacedAcceptedEvent;
 use App\Events\WalletLowEvent;
 use App\Listeners\DispatcherOrderRecievedAdminListener;
 use App\Listeners\DispatcherOrderRecievedUserListener;
@@ -15,6 +17,8 @@ use App\Listeners\OrderAssignedToDispatcherEventListener;
 use App\Listeners\OrderPlacedEventListener;
 use App\Listeners\OrderProcessedEventListener;
 use App\Listeners\RegistrationCompleteListener;
+use App\Listeners\UserOrderPlaceConfirmEventListener;
+use App\Listeners\UserOrderPlacedAcceptedListener;
 use App\Listeners\WalletLowEventListener;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Auth\Listeners\SendEmailVerificationNotification;
@@ -37,7 +41,8 @@ class EventServiceProvider extends ServiceProvider
         OrderAssignedToDispatcherEvent::class => [OrderAssignedToDispatcherEventListener::class],
         DispatcherOrderRecievedAdminEvent::class => [DispatcherOrderRecievedAdminListener::class],
         DispatcherOrderRecievedUserEvent::class => [DispatcherOrderRecievedUserListener::class],
-
+        UserOrderPlaceConfirmEvent::class => [UserOrderPlaceConfirmEventListener::class],
+        UserOrderPlacedAcceptedEvent::class => [UserOrderPlacedAcceptedListener::class]
     ];
 
     /**
