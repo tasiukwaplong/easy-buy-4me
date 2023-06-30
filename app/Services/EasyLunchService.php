@@ -10,6 +10,7 @@ use App\Models\whatsapp\messages\partials\interactive\Row;
 use App\Models\whatsapp\messages\partials\interactive\Section;
 use App\Models\whatsapp\Utils;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Str;
 
 class EasyLunchService
 {
@@ -188,45 +189,47 @@ class EasyLunchService
             $description = $subscription->easylunch->description;
 
             if (strcasecmp($subscription->package_type, "weekly") === 0) {
-                array_push($weeklyPackages, new Row("[easylunch-weekly:$easylunchId]", $name, $description));
+                array_push($weeklyPackages, new Row("[easylunch-weekly:$easylunchId:$subscription->id]", $name, $description));
             }
 
             if (strcasecmp($subscription->package_type, "monthly") === 0) {
-                array_push($monthlyPackages, new Row("[easylunch-monthly:$easylunchId]", $name, $description));
+                array_push($monthlyPackages, new Row("[easylunch-monthly:$easylunchId:$subscription->id]", $name, $description));
             }
         }
 
         //Add an action button
         array_push($actions, new Row(Utils::BUTTONS_ADD_EASY_LUNCH_SUB, "New Subscription", "Subscribe to a new Easy Lunch Package"));
+        //Add an main menu button
+        array_push($actions, new Row(Utils::BUTTONS_GO_TO_DASHBOARD, "Menu", "Go back to the main menu"));
 
-         //Build section
-         $weeklySection = new Section("Weekly Packages", $weeklyPackages);
-         $monthlySection = new Section("Monthly Packages", $monthlyPackages);
-         $actionSection = new Section('Actions', $actions);
+        //Build section
+        $weeklySection = new Section("Weekly Packages", $weeklyPackages);
+        $monthlySection = new Section("Monthly Packages", $monthlyPackages);
+        $actionSection = new Section('Actions', $actions);
 
-         if (count($weeklySection->rows) > 0)
+        if (count($weeklySection->rows) > 0)
             array_push($sections, $weeklySection);
 
         if (count($monthlySection->rows) > 0)
             array_push($sections, $monthlySection);
-        
+
         array_push($sections, $actionSection);
 
         return $sections;
     }
 
-    public function isUsed(User $user, EasyLunch $easyLunch) : bool {
+    public function isUsed(EasyLunchSubscribers $easyLunch) : bool {
         $today = date('Y-m-d');
-        return $easyLunch->subscription->last_used === $today;
+        return $easyLunch->last_used === $today;
     }
 
     public static function isEasyLunchSub(Order $order) {
-        return substr($order->description, 0, 18) === "Easy lunch package";
+        return Str::startsWith($order->description, "Easy lunch package");
     }
 
     public static function useEasyLunchSub(User $user, Order $order, $paymentMethod) {
 
-        $easylunchsub = EasyLunchSubscribers::where('user_id', $user->id)->first();
+        $easylunchsub = EasyLunchSubscribers::where(['user_id' => $user->id, 'current' => true])->first();
         $easylunchsub->orders_remaining -= 1;
         $easylunchsub->last_used = date("Y-m-d");
         $easylunchsub->last_order = $order->order_id;

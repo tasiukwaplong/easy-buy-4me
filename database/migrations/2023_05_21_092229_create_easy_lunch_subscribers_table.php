@@ -22,6 +22,7 @@ return new class extends Migration
             $table->unsignedBigInteger('orders_remaining')->nullable();
             $table->date('last_used')->nullable();
             $table->string('last_order')->nullable();
+            $table->boolean('current')->default(false);
             $table->boolean('paid')->default(false);
             
             $table->timestamps();

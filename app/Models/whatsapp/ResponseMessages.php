@@ -298,7 +298,7 @@ class ResponseMessages
         foreach ($accounts as $account) {
             $body .= "$account->account\n$account->accountName\n$account->bank\n\n";
         }
-        return self::textMessage($body, "2347035002025", false);
+        return self::textMessage($body, $admin->phone, false);
     }
 
     public static function sendDataPurchaseResponse($customerPhoneNumber, DataPlan $dataPlan, $status)
@@ -429,24 +429,18 @@ class ResponseMessages
 
         $header = new Header(Utils::TEXT, "Transaction History");
 
-        $action = ($lastPage) ? ['buttons' => array(
-            [
-                "type" => Utils::REPLY,
-                "reply" => [
-                    "id" => Utils::BUTTONS_GO_TO_DASHBOARD,
-                    "title" => "MENU"
-                ]
-            ]
-        )]
+        if($lastPage) {
+            return self::menuOptions($customerPhoneNumber, $header, $body);
+        } 
+        
+        else {
 
-            :
-
-            ['buttons' => array(
+            $action = ['buttons' => array(
                 [
                     "type" => Utils::REPLY,
                     "reply" => [
                         "id" => Utils::BUTTONS_GO_TO_DASHBOARD,
-                        "title" => "MENU"
+                        "title" => "GO TO MENU"
                     ]
                 ],
                 [
@@ -458,11 +452,14 @@ class ResponseMessages
                 ]
             )];
 
-        $interactive = new Interactive(Utils::BUTTON, $header, ['text' => $body], ['text' => Utils::EASY_BUY_4_ME_FOOTER], $action);
+            $interactive = new Interactive(Utils::BUTTON, $header, ['text' => $body], ['text' => Utils::EASY_BUY_4_ME_FOOTER], $action);
 
-        $interactiveSendMessage = new InteractiveSendMessage($customerPhoneNumber, Utils::INTERACTIVE, $interactive);
+            $interactiveSendMessage = new InteractiveSendMessage($customerPhoneNumber, Utils::INTERACTIVE, $interactive);
 
-        return $interactiveSendMessage;
+            return $interactiveSendMessage;
+        }
+
+        
     }
 
     public static function dataPurchaseStatus($customerPhoneNumber, $transactionStatusMessage)
@@ -475,7 +472,7 @@ class ResponseMessages
     public static function showAirtime($customerPhoneNumber)
     {
 
-        $body = "Kindly enter airtime recharge destination phone number and the amount in the following format\n *PHONE NUMBER* *AMOUNT*\n E.g 09012345678 100 if you are to recharge 09012345678 with N100 airtime.";
+        $body = "Kindly enter airtime recharge destination phone number and the amount in the following format\n *PHONE* *AMOUNT*\n E.g 09012345678 100 if you are to recharge 09012345678 with N100 airtime.";
         $header = new Header(Utils::TEXT, "Airtime Purchase");
 
         return self::menuOptions($customerPhoneNumber, $header, $body);
@@ -501,7 +498,7 @@ class ResponseMessages
 
     public static function showOrderStatus($orders, User $user)
     {
-        $thisOrders = "These are orders with either *PAID*, *PAY ON DELIVERY*, or *PAY BY TRANSFER* payment status\n\n";
+        $thisOrders = "These are your current orders\n\n";
 
         if ($orders) {
 
@@ -511,14 +508,15 @@ class ResponseMessages
 
                 if ($order->status == Utils::ORDER_STATUS_INITIATED) {
                     $status = "Payment Pending";
-                } else if ($order->status == Utils::ORDER_STATUS_PROCESSING) {
+                } 
+                else if ($order->status == Utils::ORDER_STATUS_PROCESSING) {
                     $status = "Processing";
                 }
                 else if ($order->status == Utils::ORDER_STATUS_ENROUTE) {
                      $status = "On the way!";
                 }
 
-                $thisOrders .= "$order->description";
+                $thisOrders .= Str::replaceLast("\n", "", $order->description);
                 $thisOrders .= "\nCreated at $order->created_at\nStatus: *$status*\n\n";
             }
 
@@ -528,15 +526,14 @@ class ResponseMessages
         }
 
         $header = new Header(Utils::TEXT, "ORDER STATUS");
-
         return self::menuOptions($user->phone, $header, $thisOrders);
 
     }
 
     public static function easyLunchSubscribed($customerPhoneNumber, EasyLunchSubscribers $easyLunchSubscriber)
     {
-        $body = "Subscription added successfully\n\nKindly choose one of the options below";
-        $header = new Header(Utils::TEXT, "Subsription Success");
+        $body = "You have opted for Easy lunch subscription\n\nKindly tap *PAY NOW* to complete this purchase";
+        $header = new Header(Utils::TEXT, "Easylunch Services");
 
         $action = ['buttons' => array(
             [
@@ -730,21 +727,25 @@ class ResponseMessages
         return self::textMessage($body, $customerPhoneNumber, false);
     }
 
-    public static function userOrderPlaced(string $customerPhoneNumber, $order)
+    public static function userOrderPlaced(string $customerPhoneNumber, $order, $easylunchRequest = false)
     {
         $errand = Errand::where('order_id', $order->id)->first();
         $body = "";
         $header = "";
 
-        if ($order->status == Utils::ORDER_STATUS_PROCESSING and $errand->status == Utils::ORDER_STATUS_PROCESSING) {
+        if($easylunchRequest) {
+            $body = "Easylunch Subscription added Successfully";
+            $header = new Header(Utils::TEXT, 'EasyLunch Subscrition');
+        }
+
+        elseif ($order->status == Utils::ORDER_STATUS_PROCESSING and $errand->status == Utils::ORDER_STATUS_PROCESSING) {
 
             $body = "Order with ID: *" . $order->order_id . "* already in process. Kindly be patient, I will soon update you on the status";
             $header = new Header(Utils::TEXT, 'Order Status');
 
         }
         else {
-            $body = "Your Order has been placed, you will be notified shortly.\n\nTap *MENU* to checkout other services";
-
+            $body = "Your Order has been placed, you will be notified shortly. Reply with *Order Status* to view status of all your pending orders\n\nTap *MENU* to checkout other services";
             $header = ["type" => "text", "text" => "Order Placed"];
         }
 
@@ -936,7 +937,7 @@ class ResponseMessages
         }
     }
 
-    public static function confirmOrderCheckout($customerPhoneNumber, Order $order, bool $easylunchRequest)
+    public static function confirmOrderCheckout($customerPhoneNumber, Order $order, bool $easylunchRequest, $easyluchSubId = 0)
     {
 
         $orderSummary = OrderService::orderSummary($order);
@@ -945,11 +946,28 @@ class ResponseMessages
 
         $header = ["type" => "text", "text" => "ORDER SUMMARY"];
 
-        $action = ['buttons' => array(
+        $action = ($easyluchSubId === 0) ? ['buttons' => array(
             [
                 "type" => Utils::REPLY,
                 "reply" => [
                     "id" => $easylunchRequest ? "[order-confirm-yes:$order->id:easylunch]" : "[order-confirm-yes:$order->id]",
+                    "title" => "YES, CONTINUE"
+                ]
+            ],
+            [
+                "type" => Utils::REPLY,
+                "reply" => [
+                    "id" => "[order-confirm-no:$order->id]",
+                    "title" => "NO"
+                ]
+            ]
+        )] :
+
+        ['buttons' => array(
+            [
+                "type" => Utils::REPLY,
+                "reply" => [
+                    "id" => $easylunchRequest ? "[order-confirm-yes:$order->id:easylunch_$easyluchSubId]" : "[order-confirm-yes:$order->id]",
                     "title" => "YES, CONTINUE"
                 ]
             ],
@@ -1253,6 +1271,8 @@ class ResponseMessages
                 array_push($selectionRows, $row);
             }
 
+            array_push($selectionRows, new Row(Utils::BUTTONS_GO_TO_DASHBOARD, "Menu", "Go back to main menue"));
+
             //Build section
             $section = new Section("Select Vendor", $selectionRows);
 
@@ -1269,7 +1289,9 @@ class ResponseMessages
             $interactiveSendMessage = new InteractiveSendMessage($customerPhoneNumber, Utils::INTERACTIVE, $interactive);
 
             return $interactiveSendMessage;
-        } else {
+        } 
+        
+        else {
             return self::errandHome($customerPhoneNumber, "Sorry no availble vendor for this service. Try again leter or select another\n");
         }
     }
@@ -1303,7 +1325,7 @@ class ResponseMessages
             $action = new Action("FOOD VENDORS", array($section));
 
             //Build a footer
-            $footer = ['text' => 'UtilsEASY_BUY_4_ME_FOOTER'];
+            $footer = ['text' => Utils::EASY_BUY_4_ME_FOOTER];
 
             $body = ['text' => $bodyContent];
 
@@ -1342,6 +1364,8 @@ class ResponseMessages
             array_push($selectionRows, $row);
         }
 
+        array_push($selectionRows, new Row(Utils::BUTTONS_GO_TO_DASHBOARD, 'Menu', 'Go back to main menu'));
+
         //Build section
         $section = new Section($title, $selectionRows);
 
@@ -1349,7 +1373,7 @@ class ResponseMessages
         $action = new Action($button, array($section));
 
         //Build a footer
-        $footer = ['text' => 'UtilsEASY_BUY_4_ME_FOOTER'];
+        $footer = ['text' => Utils::EASY_BUY_4_ME_FOOTER];
 
         $body = ['text' => $bodyContent];
 
@@ -1376,8 +1400,10 @@ class ResponseMessages
             $body = "Ooops!\nLooks like you entered unknown response, kindly reply with *Hi* to get started. $registeredCustomerBody";
 
             return self::menuOptions($customerPhoneNumber, $header, $body);
+            
         } 
         else {
+
             $body = "Ooops!\nLooks like you entered unknown response, kindly reply with *Hi* to get started. ";
             return self::textMessage($body, $customerPhoneNumber, $urlPreview);
         }

@@ -123,6 +123,7 @@ class Utils
     //Easylunch types
     public const EASY_LUNCH_TYPE_WEEKLY = "weekly";
     public const EASY_LUNCH_TYPE_MONTHLY = "monthly";
+    public const EASYLUNCH_CURRENT = "CURRENT";
 
     //Expected User commands
     public const USER_INPUT_ORDER_STATUS = "Order status"; 
