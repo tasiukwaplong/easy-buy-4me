@@ -734,8 +734,23 @@ class ResponseMessages
         $header = "";
 
         if($easylunchRequest) {
-            $body = "Easylunch Subscription added Successfully";
-            $header = new Header(Utils::TEXT, 'EasyLunch Subscrition');
+            $body = "Easylunch Subscription added Successfully\nAttached is an invoice for this order.";
+            $header = ["type" => "document", "document" => ["link" => $order->transaction->orderInvoice->url]];
+            
+            $action = ['buttons' => array(
+                [
+                    "type" => Utils::REPLY,
+                    "reply" => [
+                        "id" => Utils::BUTTONS_GO_TO_DASHBOARD,
+                        "title" => "MENU"
+                    ]
+                ]
+            )];
+    
+            $interactive = new Interactive(Utils::BUTTON, $header, ['text' => $body], ['text' => Utils::EASY_BUY_4_ME_FOOTER], $action);
+    
+            $interactiveSendMessage = new InteractiveSendMessage($order->user->phone, Utils::INTERACTIVE, $interactive);
+            return $interactiveSendMessage;
         }
 
         elseif ($order->status == Utils::ORDER_STATUS_PROCESSING and $errand->status == Utils::ORDER_STATUS_PROCESSING) {

@@ -1146,6 +1146,7 @@ class ResponseService
             ->post("https://graph.facebook.com/$whatsApiVersion/$whatsAppId/messages", $this->responseData);
         
     }
+
     
     private function cleanMessage($interactiveMessageId)
     {

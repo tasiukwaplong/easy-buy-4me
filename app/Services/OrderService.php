@@ -190,17 +190,27 @@ class OrderService
                     //check for easy lunch subscription
                     if ($isEasylunchPackageSub) {
 
+                        $walletService->alterBalance($order->total_amount, $user->wallet, false);
+
                         $easylunchsub = EasyLunchSubscribers::where(['user_id' => $order->user->id, 'paid' => false])->whereNull('last_used')->orderByDesc('id')->first();
                         $easylunchsub->paid = true;
                         $easylunchsub->save();
 
                         $order->status = Utils::ORDER_STATUS_DELIVERED;
+
+                        
+                        $transactionService = new TransactionService();
+                        $transactionService->updateTransaction($order->transaction, ['status' => Utils::TRANSACTION_STATUS_SUCCESS, 'method' => $paymentMethod]);            
+
+                        $order->transaction->orderInvoice->url = OrderService::getOrderInvoice($order);
+                        $order->transaction->orderInvoice->save();
+                    }
+                    else {
+                        $transactionService = new TransactionService();
+                        $transactionService->updateTransaction($order->transaction, ['status' => Utils::TRANSACTION_STATUS_PENDING, 'method' => $paymentMethod]);            
                     }
 
-                    $transactionService = new TransactionService();
-                    $transactionService->updateTransaction($order->transaction, ['status' => Utils::TRANSACTION_STATUS_PENDING, 'method' => $paymentMethod]);            
                 }
-
 
             }
 
