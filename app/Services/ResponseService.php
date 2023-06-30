@@ -287,8 +287,10 @@ class ResponseService
                             }
 
                             case Utils::DATA: {
-                                    $networkNames = DataService::getAllNetworks();
-                                    $this->responseData = ResponseMessages::showDataNetworks($customerPhoneNumber, $networkNames);
+
+                                    $dataPlans = DataService::fetchDataPlans();
+                                    $this->responseData = ResponseMessages::showNetworkDataPlans($customerPhoneNumber, $dataPlans);
+
                                     break;
                                 }
 
@@ -360,6 +362,9 @@ class ResponseService
                                     $this->responseData = ResponseMessages::showAirtime($customerPhoneNumber);
                                     break;
                                 }
+                            case Utils::BUTTONS_GO_TO_DASHBOARD:
+                                $this->responseData = ResponseMessages::dashboardMessage($user);
+                                break;
 
                             default:
                                 # code...
@@ -381,21 +386,27 @@ class ResponseService
                         elseif (Str::startsWith($message, 'easylunch-weekly:') or Str::startsWith($message, 'easylunch-monthly:')) {
 
                             $easyLunchService = new EasyLunchService();
-                            $easylunchId = Str::replace("easylunch-weekly:", "", $message);
+                            $parts = explode(":", Str::replace("easylunch-weekly:", "", $message));
+
+                            if(Str::startsWith($message, 'easylunch-monthly:')) {
+                                $parts = explode(":", Str::replace("easylunch-monthly:", "", $message));
+                            }
+
+                            $easylunchId = $parts[0];
+                            $easylunchSubId = $parts[1];
 
                             $easylunch = EasyLunch::find($easylunchId);
+                            $easylunchSub = EasyLunchSubscribers::findOrFail($easylunchSubId);
 
-                            if($easyLunchService->isUsed($user, $easylunch)) {
+                            if($easyLunchService->isUsed($easylunchSub)) {
                                 $this->responseData = ResponseMessages::easylunchUsed($customerPhoneNumber, $easylunch);
                             }
 
                             elseif (count($easyLunchService->getSubscriptions($user)) > 0) {
                                 
                                 $easylunchOrder = $orderService->createEasylunchOrder($user, $easylunchId);
-
-                                $this->responseData = ResponseMessages::confirmOrderCheckout($customerPhoneNumber, $easylunchOrder, true);
+                                $this->responseData = ResponseMessages::confirmOrderCheckout($customerPhoneNumber, $easylunchOrder, true, $easylunchSub->id);
                             } 
-                            
                             else $this->responseData = ResponseMessages::easyLunchHome($customerPhoneNumber);
                         }
                         
@@ -476,7 +487,7 @@ class ResponseService
 
                                 if ($method === Utils::PAYMENT_METHOD_WALLET) {
 
-                                    if (Str::startsWith($order->description, "Easy lunch package")) {
+                                    if (EasyLunchService::isEasyLunchSub($order)) {
 
                                         if ($walletService->isFundsAvailable($user, $order->total_amount)) {
                                             
@@ -484,7 +495,7 @@ class ResponseService
                                             $order = $orderService->performCheckout($orderId, $user->wallet->id, $method);
 
                                             //Notify user that their order has been placed
-                                            $this->responseData = ResponseMessages::userOrderPlaced($customerPhoneNumber, $order);
+                                            $this->responseData = ResponseMessages::userOrderPlaced($customerPhoneNumber, $order, true);
                                         } 
                                         
                                         else {
@@ -561,7 +572,9 @@ class ResponseService
                                         $vendor = Item::find($orderItems->last()->item_id)->vendor;
 
                                         $this->responseData = ResponseMessages::vendorCatalog($customerPhoneNumber, $vendor, false);
-                                    } else  $this->responseData = ResponseMessages::allVendors($customerPhoneNumber);
+                                    } 
+                                    
+                                    else  $this->responseData = ResponseMessages::allVendors($customerPhoneNumber);
 
                                     break;
                                 }
@@ -613,10 +626,14 @@ class ResponseService
 
                             else {
 
-                                $orderService = new OrderService();
-                                $orderService->cancelOrder($order->id);
+                                if($order->status === Utils::ORDER_STATUS_INITIATED) {
+                                    $orderService = new OrderService();
+                                    $orderService->cancelOrder($order->id);
 
-                                $this->responseData = ResponseMessages::orderCancelled($customerPhoneNumber);
+                                    $this->responseData = ResponseMessages::orderCancelled($customerPhoneNumber);
+                                }
+
+                                else $this->responseData = ResponseMessages::orderAlreadyProcessed($customerPhoneNumber, $order);
                             }
                         }
 
@@ -689,7 +706,7 @@ class ResponseService
                                 if ($method === Utils::PAYMENT_METHOD_WALLET or $method === Utils::PAYMENT_METHOD_EASY_LUNCH) {
 
                                     //Perform checkout
-                                    $order = $orderService->performCheckout($orderId, ($easylunchRequest) ?  Utils::PAYMENT_METHOD_EASY_LUNCH : $user->wallet->id, $method);
+                                    $order = $orderService->performCheckout($orderId, ($easylunchRequest) ? Utils::PAYMENT_METHOD_EASY_LUNCH : $user->wallet->id, $method);
 
                                     //Notify user that their order has been placed
                                     $this->responseData = ResponseMessages::userOrderPlaced($customerPhoneNumber, $order);
@@ -706,10 +723,15 @@ class ResponseService
                             }
                             else {
 
-                                $order->updated_at = now();
-                                $order->save();
+                                if ($order->staus === Utils::ORDER_STATUS_INITIATED) {
+                                    $order->updated_at = now();
+                                    $order->save();
 
-                                $this->responseData = ResponseMessages::enterOrderDeliveryAddress($customerPhoneNumber);
+                                    $this->responseData = ResponseMessages::enterOrderDeliveryAddress($customerPhoneNumber);
+                                }
+                                else {
+                                    $this->responseData = ResponseMessages::orderAlreadyProcessed($customerPhoneNumber, $order);
+                                }
                             }
                         }
                         
@@ -749,7 +771,7 @@ class ResponseService
                         
                         elseif (Str::startsWith($message, "button-order-checkout")) {
 
-                            $parts = explode(":", Str::replace("order-confirm-", "", $message));
+                            $parts = explode(":", Str::replace("button-order-checkout", "", $message));
 
                             $easylunchRequest = $parts[2] ?? false;
                             $orderId = $parts[1];
@@ -783,17 +805,40 @@ class ResponseService
 
                                 if ($easylunchRequest) {
 
+                                    $easylunchRequestParts = explode("_", $easylunchRequest);
+                                    $easyluchS = $easylunchRequestParts[1];
+                                    $easylunchRequest = $easylunchRequestParts[0];
+
+                                    $userSubs = EasyLunchSubscribers::where('user_id', $user->id)->get();
+
+                                    foreach ($userSubs as $item) {
+
+                                        if ($item->current) {
+                                            $item->current = false;
+                                            $item->save();
+                                        }
+                                    }
+
+                                    $currentSub = EasyLunchSubscribers::findOrFail($easyluchS);
+                                    $currentSub->current = true;
+                                    $currentSub->save();
+
                                     $this->responseData = ResponseMessages::enterOrderDeliveryAddress($customerPhoneNumber, $easylunchRequest);
-                                    
-                                } else {
+                                } 
+                                
+                                else {
 
                                     $this->responseData = ResponseMessages::chooseWallet($customerPhoneNumber, $order);
                                 }
                             } else {
 
-                                $orderService->cancelOrder($orderId);
-
-                                $this->responseData = ResponseMessages::orderCancelled($customerPhoneNumber);
+                                if($order->status === Utils::ORDER_STATUS_INITIATED) {
+                                    $orderService->cancelOrder($orderId);
+                                    $this->responseData = ResponseMessages::orderCancelled($customerPhoneNumber);
+                                }
+                                else {
+                                    $this->responseData = ResponseMessages::orderAlreadyProcessed($customerPhoneNumber, $order);
+                                }
                             }
                         }
                     }
@@ -1099,6 +1144,7 @@ class ResponseService
         Http::withToken(env('WHATSAPP_ACCESS_KEY'))
             ->withHeaders(['Content-type' => 'application/json'])
             ->post("https://graph.facebook.com/$whatsApiVersion/$whatsAppId/messages", $this->responseData);
+        
     }
     
     private function cleanMessage($interactiveMessageId)
