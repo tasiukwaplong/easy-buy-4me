@@ -43,6 +43,8 @@ class WhatsAppController extends Controller
         }
     }
 
-    public function test(Request $request) { }
+    public function test(Request $request) {       
+       
+    }
 
 }
