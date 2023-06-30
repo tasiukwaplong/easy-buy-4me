@@ -28,7 +28,7 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
 
-        User::create([
+        $admin = User::create([
             'phone' => "2349031514346",
             'first_name' => "Tasiu",
             'last_name' => "TK",
@@ -73,6 +73,11 @@ class DatabaseSeeder extends Seeder
             'balance' => 20000
         ]);
 
+        Wallet::create([
+            'user_id' => $admin->id,
+            'balance' => 20000
+        ]);
+
         MonnifyAccount::create([
             'bank' => "Wema Bank",
             'account_name' => "Ralph",
@@ -80,6 +85,15 @@ class DatabaseSeeder extends Seeder
             'account_reference' => "jhsbuishiasuhisushsuhuihduihusiua",
             'bank_code' => "035",
             'user_id' => $user->id
+        ]);
+
+        MonnifyAccount::create([
+            'bank' => "Wema Bank",
+            'account_name' => "Tasiu",
+            'account_number' => "5078656787",
+            'account_reference' => "jhsbuishissssaisushsuhuihduihusiua",
+            'bank_code' => "035",
+            'user_id' => $admin->id
         ]);
 
         $firstVendor = Vendor::create([
