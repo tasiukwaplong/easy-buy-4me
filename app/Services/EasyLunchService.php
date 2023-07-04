@@ -132,8 +132,6 @@ class EasyLunchService
         }
         else $easyLunches = EasyLunch::all();
 
-       
-        
         $weeklyPackages = [];
         $monthlyPackages = [];
 
