@@ -314,7 +314,7 @@ class ResponseMessages
             $body .= "Purchase of data plan of $dataPlan->description was not successful\nReason: *Insufficient fund*";
         
         } else {
-            $body .= "Purchase of data plan of $dataPlan->description was not successful\nReason: *Unknown Error! Please try again*";
+            $body .= "Sorry, we could not complete your data plan purchase of $dataPlan->description, please try again in 10mins";
         }
 
         return self::menuOptions($customerPhoneNumber, $header, $body);
