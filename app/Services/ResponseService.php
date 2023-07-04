@@ -1141,12 +1141,10 @@ class ResponseService
         $whatsAppId = env('WHATSAPP_PHONE_NUMBER_ID');
         $whatsApiVersion = env('WHATSAPP_API_VERSION');
 
-        $response = Http::withToken(env('WHATSAPP_ACCESS_KEY'))
+        Http::withToken(env('WHATSAPP_ACCESS_KEY'))
             ->withHeaders(['Content-type' => 'application/json'])
             ->post("https://graph.facebook.com/$whatsApiVersion/$whatsAppId/messages", $this->responseData);
-        
     }
-
     
     private function cleanMessage($interactiveMessageId)
     {
