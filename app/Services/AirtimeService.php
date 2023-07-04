@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Events\WalletLowEvent;
 use App\Exceptions\InsufficientFundException;
 use App\Models\Order;
 use App\Models\User;
@@ -49,38 +50,41 @@ class AirtimeService
 
         try {
 
-            $response = Http::withHeaders(["AuthorizationToken" => env('EASY_ACCESS_TOKEN'), "cache-control" => "no-cache"])
-                        ->asForm()
-                        ->post("https://easyaccess.com.ng/api/airtime.php", $airtimeRequestBody)->json();
+            if ($walletService->isFundsAvailable($this->user, intval($amount))) {
 
-            $reference = $response['reference_no'] ?? Random::generate(30);
+                $response = Http::withHeaders(["AuthorizationToken" => env('EASY_ACCESS_TOKEN'), "cache-control" => "no-cache"])
+                    ->asForm()
+                    ->post("https://easyaccess.com.ng/api/airtime.php", $airtimeRequestBody)->json();
 
-            if(($response['success'] == "true") and ($response['status'] == 'Successful')) {
+                $reference = $response['reference_no'] ?? Random::generate(30);
 
-                $walletService->alterBalance($amount, $userWallet, false);
-                $this->status = Utils::TRANSACTION_STATUS_SUCCESS;
+                if (($response['success'] == "true") and ($response['status'] == 'Successful')) {
 
+                    $walletService->alterBalance($amount, $userWallet, false);
+                    $this->status = Utils::TRANSACTION_STATUS_SUCCESS;
+                } 
+                
+                elseif (Str::startsWith($response['message'], 'Amount Too Low')) {
+                    $this->status = Utils::AIRTIME_INVALID_AMOUNT;
+                } 
+                
+                else {
+                    throw new \Exception($response['message']);
+                }
             }
-
-            elseif(Str::startsWith($response['message'],'Amount Too Low')) {
-                $this->status = Utils::AIRTIME_INVALID_AMOUNT;
-            }
-
             else {
-                throw new \Exception($response['message']);
+
+                //Notify admin that wallet is low
+                event(new WalletLowEvent(Utils::ADMIN_WALLET_EASY_ACCESS));
+                  
+                $this->status = Utils::TRANSACTION_STATUS_INSUFFICIENT_BALANCE;
             }
 
-        } 
-        catch(InsufficientFundException $e) {
-            $this->status = Utils::TRANSACTION_STATUS_INSUFFICIENT_BALANCE;
         }
         
         catch (\Throwable $th) {
 
-            $this->status = (strcasecmp($th->getMessage(), 'Insufficient Balance') === 0) ?
-                Utils::TRANSACTION_STATUS_INSUFFICIENT_BALANCE :
-                Utils::TRANSACTION_STATUS_UNSUCCESSFUL;
-
+            $this->status = Utils::TRANSACTION_STATUS_UNSUCCESSFUL;
         } 
         finally{
 
