@@ -7,6 +7,7 @@ use App\Exceptions\InsufficientFundException;
 use App\Models\Order;
 use App\Models\User;
 use App\Models\whatsapp\Utils;
+use Exception;
 use Illuminate\Support\Facades\Http;
 use Nette\Utils\Random;
 use Illuminate\Support\Str;
@@ -67,15 +68,20 @@ class AirtimeService
                 elseif (Str::startsWith($response['message'], 'Amount Too Low')) {
                     $this->status = Utils::AIRTIME_INVALID_AMOUNT;
                 } 
+
+                elseif (Str::startsWith($response['success'], 'false') and (strcasecmp($response['message'], "Insufficient Balance") === 0)) {
+
+                    //Notify admin that wallet is low
+                    event(new WalletLowEvent(Utils::ADMIN_WALLET_EASY_ACCESS));
+                    throw new Exception("Error Processing Request");
+
+                }
                 
                 else {
                     throw new \Exception($response['message']);
                 }
             }
             else {
-
-                //Notify admin that wallet is low
-                event(new WalletLowEvent(Utils::ADMIN_WALLET_EASY_ACCESS));
                   
                 $this->status = Utils::TRANSACTION_STATUS_INSUFFICIENT_BALANCE;
             }
