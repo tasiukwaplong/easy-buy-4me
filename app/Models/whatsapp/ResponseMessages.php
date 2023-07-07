@@ -18,6 +18,7 @@ use App\Models\whatsapp\messages\partials\interactive\Row;
 use App\Models\whatsapp\messages\partials\interactive\Section;
 use App\Models\whatsapp\messages\SendMessage;
 use App\Models\whatsapp\messages\TextSendMessage;
+use App\Services\DataService;
 use App\Services\EasyLunchService;
 use App\Services\ErrandService;
 use App\Services\OrderService;
@@ -26,6 +27,44 @@ use Illuminate\Support\Str;
 
 class ResponseMessages
 {
+
+    public static function invalideAirtimePurchaseParams($customerPhoneNumber) {
+
+        $body = "Invalid amount or phone number entered\*Minimum amount is N50*\nPhone number must be 11 digits e.g *08123456789*";
+        $header = new Header(Utils::TEXT, "Invalid Input!");
+        
+        return self::menuOptions($customerPhoneNumber, $header, $body);
+    }
+
+    public static function airtimePurchaseConfirm($customerPhoneNumber, $amount, $phone, $networkName) {
+
+        $body = "Are you sure you want to send $networkName N$amount airtime to $phone?";
+
+        $header = new Header(Utils::TEXT, "Purchase Airtime Confimation");
+
+        $action = ['buttons' => array(
+            [
+                "type" => Utils::REPLY,
+                "reply" => [
+                    "id" => "[airtime-purchase-confirm:$amount:$phone]",
+                    "title" => "YES, CONTINUE"
+                ]
+            ],
+            [
+                "type" => Utils::REPLY,
+                "reply" => [
+                    "id" => Utils::BUTTONS_AIRTIME_PURCHASE_CANCEL,
+                    "title" => "CANCEL"
+                ]
+            ],
+        )];
+
+        $interactive = new Interactive(Utils::BUTTON, $header, ['text' => $body], ['text' => Utils::EASY_BUY_4_ME_FOOTER], $action);
+
+        $interactiveSendMessage = new InteractiveSendMessage($customerPhoneNumber, Utils::INTERACTIVE, $interactive);
+
+        return $interactiveSendMessage;
+    }
     public static function notifyAdminUserOrderAccepted($order) {
         
         $errand = $order->errand;
@@ -301,14 +340,14 @@ class ResponseMessages
         return self::textMessage($body, $admin->phone, false);
     }
 
-    public static function sendDataPurchaseResponse($customerPhoneNumber, DataPlan $dataPlan, $status)
+    public static function sendDataPurchaseResponse($customerPhoneNumber, DataPlan $dataPlan, $status, $reference)
     {
         $body = "";
 
         $header = new Header(Utils::TEXT, "Data Purchase");
 
         if ($status === Utils::TRANSACTION_STATUS_SUCCESS) {
-            $body .= "Purchase of data plan of $dataPlan->description successful";
+            $body .= "Purchase of data plan of $dataPlan->description successful\n\nIf you don't get your data after 5mins, click here -> https://wa.me/+2349031514346/?text=$reference";
 
         } elseif ($status === Utils::TRANSACTION_STATUS_INSUFFICIENT_BALANCE) {
             $body .= "Purchase of data plan of $dataPlan->description was not successful\nReason: *Insufficient fund*";
@@ -322,7 +361,24 @@ class ResponseMessages
     public static function wrongDataPlanEntry($customerPhoneNumber, $entry, $incompleteNumber = false)
     {
 
-        $body = ($incompleteNumber) ? "Destination Number must be 11 digits" : "Oops! Looks like you've mistyped a data plan purchase command.\nThe right command is *NETWORK PLAN NUMBER* (e.g *MTN1GB 09033456789* to purchase MTN 1GB plan for 09033456789)\nYou typed *$entry*. Please try again with the right command or tap any of the buttons below to start again";
+        $body = ($incompleteNumber) ? "Destination Number must be 11 digits" : "Oops! Looks like you've mistyped a data plan purchase command.\nThe right command is *NETWORK PLAN NUMBER* (e.g *MTN1GB 09033456789* to purchase MTN 1GB plan for 09033456789)\nYou typed *$entry*. Please try again with the right command or tap any of the buttons below to start again\n\n";
+        $body .= "List of Data plans\n";
+
+         // dd($dataPlans->all());
+        foreach (DataService::fetchDataPlans() as $dataPlan) {
+
+            foreach ($dataPlan as $network_name => $plans) {
+
+                $body .= "*$network_name Data Plans*\n";
+
+                foreach ($plans as $plan) {
+
+                    $body .= "$plan->network_name$plan->name - $plan->description\n";
+                }
+            }
+
+            $body .= "\n";
+        }
 
         $header = new Header(Utils::TEXT, "Error!");
 
@@ -462,10 +518,11 @@ class ResponseMessages
         
     }
 
-    public static function dataPurchaseStatus($customerPhoneNumber, $transactionStatusMessage)
+    public static function dataPurchaseStatus($customerPhoneNumber, $transactionStatusMessage, $reference)
     {
         $header = new Header(Utils::TEXT, "Airtime Purchase");
-        return self::menuOptions($customerPhoneNumber, $header, $transactionStatusMessage);
+        $body = (strcasecmp("Airtime Purchase successful", $transactionStatusMessage) == 0) ? "$transactionStatusMessage\n\nIf you don't get your airtime after 5mins, click here -> https://wa.me/+2349031514346/?text=$reference" : $transactionStatusMessage;
+        return self::menuOptions($customerPhoneNumber, $header, $body);
 
     }
 
@@ -1404,11 +1461,22 @@ class ResponseMessages
         $body = "";
 
         if ($registered) {
+
             $registeredCustomerBody = "Or reply with the following\n\n";
 
-            foreach (Utils::USER_INPUT_MESSAGES as $input => $message) {
-                $registeredCustomerBody .= "*$input* : $message\n";
-            }
+           if(env('DATA_AIRTIME_MODE') === 'ON') {
+
+            $registeredCustomerBody .=  Utils::USER_INPUT_MENU ." : " . Utils::USER_INPUT_MESSAGES[Utils::USER_INPUT_MENU] . "\n" .
+                                        Utils::USER_INPUT_WALLET ." : " . Utils::USER_INPUT_MESSAGES[Utils::USER_INPUT_WALLET] . "\n" .
+                                        Utils::USER_INPUT_AIRTIME ." : " . Utils::USER_INPUT_MESSAGES[Utils::USER_INPUT_AIRTIME] . "\n" .
+                                        Utils::USER_INPUT_DATA ." : " . Utils::USER_INPUT_MESSAGES[Utils::USER_INPUT_DATA] . "\n";
+
+           }
+           else {
+                foreach (Utils::USER_INPUT_MESSAGES as $input => $message) {
+                    $registeredCustomerBody .= "*$input* : $message\n";
+                }
+           }
 
             $header = new Header(Utils::TEXT, "Wrong Input!");
 
@@ -1497,10 +1565,21 @@ class ResponseMessages
          //Build all rows 
          $selectionRows = [];
 
-         foreach (Utils::DASHBOARD_MENU as $id => $description) {
-             $row = new Row($id, $description[0], $description[1]);
-             array_push($selectionRows, $row);
-         }
+         if(env('DATA_AIRTIME_MODE') === 'ON') {
+
+            array_push($selectionRows, new Row(Utils::AIRTIME, Utils::DASHBOARD_MENU[Utils::AIRTIME][0], Utils::DASHBOARD_MENU[Utils::AIRTIME][1]));
+            array_push($selectionRows, new Row(Utils::DATA, Utils::DASHBOARD_MENU[Utils::DATA][0], Utils::DASHBOARD_MENU[Utils::DATA][1]));
+            array_push($selectionRows, new Row(Utils::MY_WALLET, Utils::DASHBOARD_MENU[Utils::MY_WALLET][0], Utils::DASHBOARD_MENU[Utils::MY_WALLET][1]));
+
+         } 
+         else {
+
+            foreach (Utils::DASHBOARD_MENU as $id => $description) {
+                $row = new Row($id, $description[0], $description[1]);
+                array_push($selectionRows, $row);
+            }
+
+        }
  
          //Build section
          $section = new Section("Services", $selectionRows);

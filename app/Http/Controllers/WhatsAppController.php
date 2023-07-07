@@ -35,12 +35,11 @@ class WhatsAppController extends Controller
 
             //Send response to user
             $responseService->sendResponse();
-
         }
     }
 
-    public function test(Request $request) {       
-       
+    public function test(Request $request) {     
+
     }
 
 }

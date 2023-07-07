@@ -29,12 +29,12 @@ class AirtimeService
      *
      * @param [type] $destinationPhone
      * @param [type] $amount
-     * @return void
+     * @return string
      */
-    public function buyAirtime($destinationPhone, $amount)
+    public function buyAirtime($destinationPhone, $amount) :string
     {
         $amount = doubleval($amount);
-        $reference = '';
+        $reference = Random::generate(30);
 
         //Initialize a new wallet service
         $walletService = new WalletService();
@@ -43,7 +43,7 @@ class AirtimeService
         $userWallet = $walletService->getWallet($this->user);
 
         $airtimeRequestBody = [
-            'network' => $this->getPhoneNetwork($destinationPhone),
+            'network' => $this->getPhoneNetwork($destinationPhone)->network_code,
             'amount' => intval($amount),
             'mobileno' => $destinationPhone,
             'airtime_type' => '001'
@@ -57,7 +57,7 @@ class AirtimeService
                     ->asForm()
                     ->post("https://easyaccess.com.ng/api/airtime.php", $airtimeRequestBody)->json();
 
-                $reference = $response['reference_no'] ?? Random::generate(30);
+                $reference = $response['reference_no'] ?? $reference;
 
                 if (($response['success'] == "true") and ($response['status'] == 'Successful')) {
 
@@ -118,6 +118,8 @@ class AirtimeService
 
         }
 
+        return $reference;
+
     }
 
     /**
@@ -158,7 +160,7 @@ class AirtimeService
         return $response;
     }
 
-    private function getPhoneNetwork($phone) {
+    public function getPhoneNetwork($phone) {
 
         $start = substr($phone, 0, 4);
         $networkName = "";
@@ -168,7 +170,7 @@ class AirtimeService
                 $networkName = $network;   
         }
 
-        return DataService::get(array('network_name' => $networkName))->network_code;
+        return DataService::get(array('network_name' => $networkName));
         
     }
 }
