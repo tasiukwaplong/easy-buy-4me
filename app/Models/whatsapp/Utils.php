@@ -51,7 +51,8 @@ class Utils
     public const GREETINGS_TO_CUSTOMER = ['Hi', 'Yo!', 'Howdy!', "What's up!", 'Hey!', 'Hello', 'Greetings'];
 
     //Dashboard menu
-    public const DASHBOARD_MENU = [
+    public const DASHBOARD_MENU = 
+    [
         self::MY_WALLET => ["Manage my wallet", "See balance, fund wallet"],
         self::ERRAND => ['Run a physical errand', "Let's get you your grocery and lunch from your favorite restaurant"],
         self::DATA => ['Purchase Data', "Data (Internet subscription): Purchase data at very affordable rate"],
@@ -77,6 +78,7 @@ class Utils
     public const BUTTONS_FUND_MY_WALLET = '[button-fund-my-wallet]';
     public const BUTTONS_USER_WALLET_HISTORY = '[button-user-wallet-history]';
     public const BUTTONS_CLEAR_CART = '[button-clear-cart]';
+    public const BUTTONS_AIRTIME_PURCHASE_CANCEL = '[airtime-purchase-cancel]';
 
     //List reply IDs
     public const ERRAND = "[errand]";
@@ -140,7 +142,8 @@ class Utils
     public const USER_INPUT_CONTACT_ADMIN = "Contact Admin"; 
     public const USER_INPUTS_GREETINGS = ['Hi', 'hi', 'Yo!', 'Yo', 'Howdy!', "What's up!", 'Hey!', 'Hey', 'Hello', 'hello', 'Greetings', 'xup', 'yaa', 'guy', 'babe', 'yaa ne'];
 
-    public const USER_INPUT_MESSAGES = [
+    public const USER_INPUT_MESSAGES = 
+    [
         self::USER_INPUT_MENU => "To view all services",
         self::USER_INPUT_AIRTIME => "To purchase airtime",
         self::USER_INPUT_DATA => "To purchase data bundle",
@@ -188,7 +191,7 @@ class Utils
     public const EASY_BUY_4_ME_FOOTER = "@easybuy4me";
 
     //Regular Expressions
-    public const DATA_PURCHASE_INPUT = "/(mtn|9mobile|airtel|glo|\d+[A-Za-z]{2}| \d{11})/i";
+    public const DATA_PURCHASE_INPUT = "/(mtn|9mobile|airtel|glo|\d+(?:\.\d+)[A-Za-z]{2}|\s\d{11})/i";
     public const DATA_PURCHASE_NETWORK_NAME = '/^(mtn|9mobile|airtel|glo|\d+[A-Za-z]+)/';
     public const AIRTIME_PURCHASE_INPUT_MATCH = '/^\d{11} (?:[1-9]\d{2,}|[1-9]\d{1,}|[1-9])$/';
     public const AIRTIME_PURCHASE_INPUT_SPLITTER = '/(\d{11}) | (?:[1-9]\d{3,}|[1-9]\d{1,}|[1-9])/';

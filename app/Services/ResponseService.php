@@ -165,12 +165,14 @@ class ResponseService
                         $matches = preg_split(Utils::DATA_PURCHASE_INPUT, $text, -1, PREG_SPLIT_DELIM_CAPTURE);
                         $parts = array_values(array_map(function($value) {return trim(strtoupper($value));}, array_filter($matches)));
 
-                        $networkName = $parts[0];
-                        $dataPlan = $parts[1];
+                        $networkName = $parts[0] ?? false;
+                        $dataPlan = $parts[1] ?? false;
                         $phone = ($parts[2] ?? false) ? $parts[2] : Str::replace("234", "0", $customerPhoneNumber);
                         
-                        if(strlen($phone) != 11) {
-                            $this->responseData = ResponseMessages::wrongDataPlanEntry($customerPhoneNumber, $text, true);
+                        $invalidRequest = (!$networkName or !$dataPlan or (strlen($phone) != 11));
+
+                        if($invalidRequest) {
+                            $this->responseData = ResponseMessages::wrongDataPlanEntry($customerPhoneNumber, strtoupper($text), strlen($phone) != 11);
                         }
 
                         else {
@@ -187,17 +189,16 @@ class ResponseService
                     elseif (preg_match(Utils::AIRTIME_PURCHASE_INPUT_MATCH, $text)) {
 
                         $matches = preg_split(Utils::AIRTIME_PURCHASE_INPUT_SPLITTER, $text, -1, PREG_SPLIT_DELIM_CAPTURE);
+                        $airtimeService = new AirtimeService($user);
 
                         $parts = array_filter($matches);
 
                         $phone = $parts[1];
                         $amount = $parts[2];
 
-                        $airtimeService = new AirtimeService($user);
-                        $airtimeService->buyAirtime($phone, $amount);
-                        $transactionStatusMessage = $airtimeService->getStatus();
-
-                        $this->responseData = ResponseMessages::dataPurchaseStatus($customerPhoneNumber, $transactionStatusMessage);
+                        $this->responseData =   (($amount >= 50) and (strlen($phone) === 11)) ? 
+                                                ResponseMessages::airtimePurchaseConfirm($customerPhoneNumber, $amount, $phone, $airtimeService->getPhoneNetwork($phone)->network_name) :
+                                                ResponseMessages::invalideAirtimePurchaseParams($customerPhoneNumber);
                     } 
 
                     elseif(Str::startsWith($text, "delivery address ")) {
@@ -551,6 +552,10 @@ class ResponseService
                                     break;
                                 }
 
+                            case Utils::BUTTONS_AIRTIME_PURCHASE_CANCEL: 
+                                $this->responseData = ResponseMessages::showAirtime($customerPhoneNumber);
+                                break;
+
                             case Utils::BUTTONS_CLEAR_CART: {
 
                                     $orderService->clearCart($user);
@@ -598,6 +603,19 @@ class ResponseService
 
                             $this->responseData = $this->getUserTransactions($customerPhoneNumber, $user, $nextPage);
                         } 
+
+                        elseif(Str::startsWith($message, "airtime-purchase-confirm:")) {
+
+                            $parts = explode(":", Str::replace("airtime-purchase-confirm:", "", $message));
+                            $amount = $parts[0];
+                            $phone = $parts[1];
+
+                            $airtimeService = new AirtimeService($user);
+                            $transRef = $airtimeService->buyAirtime($phone, $amount);
+                            $transactionStatusMessage = $airtimeService->getStatus();
+    
+                            $this->responseData = ResponseMessages::dataPurchaseStatus($customerPhoneNumber, $transactionStatusMessage, $transRef);
+                        }
 
                         else if(Str::startsWith($message, 'buttons-order-user-confirm-')) {
                             $parts = explode(":", Str::replace('buttons-order-user-confirm-', "", $message));
@@ -742,10 +760,10 @@ class ResponseService
                             $dataPlan = DataService::get(array('id' => $parts[0]));
 
                             $dataService = new DataService($user);
-                            $dataService->confirmDataPurchase($dataPlan, $parts[1]);
+                            $reference = $dataService->confirmDataPurchase($dataPlan, $parts[1]);
                             $status = $dataService->getStatus();
 
-                            $this->responseData = ResponseMessages::sendDataPurchaseResponse($customerPhoneNumber, $dataPlan, $status);
+                            $this->responseData = ResponseMessages::sendDataPurchaseResponse($customerPhoneNumber, $dataPlan, $status, $reference);
                         } 
                         
                         elseif (Str::startsWith($message, "Order from ")) {
@@ -1145,6 +1163,7 @@ class ResponseService
             ->withHeaders(['Content-type' => 'application/json'])
             ->post("https://graph.facebook.com/$whatsApiVersion/$whatsAppId/messages", $this->responseData);
     }
+
     
     private function cleanMessage($interactiveMessageId)
     {
