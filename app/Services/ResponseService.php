@@ -939,12 +939,13 @@ class ResponseService
 
                             //Initialize notification service and send verification message
                             $notificationService = new NotificationService();
-                            $notificationService->sendEmail($user->temp_email, new EmailVerification("$firstName $lastName", $confirmationToken->veri_token, $verificationUrl));
+                            $emailStatus = $notificationService->sendEmail($user->temp_email, "Verify Account", NotificationService::verificationEmail("$firstName $lastName", $confirmationToken->veri_token, $verificationUrl));
 
                             //Notify user of verification email sent
                             $this->responseData = ResponseMessages::sendVerificationNotificationMessage(
                                 $user->temp_email,
                                 $customerPhoneNumber,
+                                $emailStatus,
                                 false
                             );
                         } 

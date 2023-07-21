@@ -1520,9 +1520,9 @@ class ResponseMessages
         return $interactiveSendMessage;
     }
 
-    public static function sendVerificationNotificationMessage($email, $customerPhoneNumber, $urlPreview): TextSendMessage
+    public static function sendVerificationNotificationMessage($email, $customerPhoneNumber, $emailStatus, $urlPreview): TextSendMessage
     {
-        $body = "Welcome again, I have sent a message to $email. Kindly click on the link to verify your email.";
+        $body = ($emailStatus) ? "Welcome again, I have sent a message to $email. Kindly click on the link to verify your email." : "Sorry, Email could not be sent at this moment, please check back later. Thank you.";
         return self::textMessage($body, $customerPhoneNumber, $urlPreview);
     }
 
