@@ -38,53 +38,9 @@ class DatabaseSeeder extends Seeder
             'referral_code' => "jjsjssdbsnbnsdnssdnsi",
         ]);
 
-        User::create([
-            'phone' => "2349031514347",
-            'first_name' => "Korede",
-            'last_name' => "Usman",
-            'role' => Utils::USER_ROLE_ADMIN,
-            'email' => "tksk@gmail.com",
-            'temp_email' => "tksk@gmail.com",
-            'referral_code' => "jjsjssdbssssnbnsaaadnssdnsi",
-        ]);
-
-        $user = User::create([
-            'phone' => "2347035002025",
-            'first_name' => "Ralph",
-            'last_name' => "Eze",
-            'role' => Utils::USER_ROLE_USER,
-            'email' => "ralphses@gmail.com",
-            'temp_email' => "ralphses@gmail.com",
-            'referral_code' => "jjsjssdbsnbssnsdnnsi",
-        ]);
-
-        User::create([
-            'phone' => "2347035002022",
-            'first_name' => "Daniel",
-            'last_name' => "Kola",
-            'role' => Utils::USER_ROLE_DISPATCH_RIDER,
-            'email' => "dispatcher@gmail.com",
-            'temp_email' => "dispatcher@gmail.com",
-            'referral_code' => "jjsjssdbsnbssssssnsdnnsi",
-        ]);
-
-        Wallet::create([
-            'user_id' => $user->id,
-            'balance' => 20000
-        ]);
-
         Wallet::create([
             'user_id' => $admin->id,
             'balance' => 20000
-        ]);
-
-        MonnifyAccount::create([
-            'bank' => "Wema Bank",
-            'account_name' => "Ralph",
-            'account_number' => "5678656787",
-            'account_reference' => "jhsbuishiasuhisushsuhuihduihusiua",
-            'bank_code' => "035",
-            'user_id' => $user->id
         ]);
 
         MonnifyAccount::create([
@@ -276,6 +232,18 @@ class DatabaseSeeder extends Seeder
             'price' => $price,
             'dataplan' => 130, 
             'description' => "2GB - N$price 30days"
+        ]);
+
+        $cost = 290;
+        $price = round($cost + doubleval(env('DATA_PLAN_PROFIT', 20)));
+        DataPlan::create([
+            'name' => "2GB",
+            'network_name' => "AIRTEL", 
+            'network_code' => "03", 
+            'cost' => 290, 
+            'price' => $price,
+            'dataplan' => 107, 
+            'description' => "1GB (CG) - N$price 30days"
         ]);
     }
 }
