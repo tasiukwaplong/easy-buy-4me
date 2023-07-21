@@ -941,7 +941,6 @@ class ResponseService
                             $notificationService = new NotificationService();
                             $emailStatus = $notificationService->sendEmail($user->temp_email, "Verify Account", NotificationService::verificationEmail("$firstName $lastName", $confirmationToken->veri_token, $verificationUrl));
 
-                            dd($emailStatus);
                             //Notify user of verification email sent
                             $this->responseData = ResponseMessages::sendVerificationNotificationMessage(
                                 $user->temp_email,
