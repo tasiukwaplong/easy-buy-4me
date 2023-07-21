@@ -54,7 +54,7 @@ class AuthService
 
         try {
 
-            $confirmationToken = ConfirmationToken::where('email', $user->temp_email)->first();
+            $confirmationToken = ConfirmationToken::where('email', $user->temp_email)->orderByDesc('id')->first();
 
             $decryptedHash = Crypt::decrypt($hash);
             $decryptedParts = explode($secrete, $decryptedHash);
@@ -88,7 +88,7 @@ class AuthService
 
             $user = $userService->getUserByPhoneNumber($phone);
 
-            $confirmationToken = ConfirmationToken::where('email', $user->temp_email)->first();
+            $confirmationToken = ConfirmationToken::where('email', $user->temp_email)->orderByDesc('id')->first();
 
             return  $confirmationToken and 
                     ($confirmationToken->expires_in > now()) and 
